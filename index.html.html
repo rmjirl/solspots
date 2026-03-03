@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOL Spots — Find Solana-Accepting Businesses</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --sol-purple: #9945FF;
+    --sol-green: #14F195;
+    --sol-blue: #00C2FF;
+    --bg: #080B10;
+    --surface: #0D1117;
+    --surface2: #161B24;
+    --border: rgba(153,69,255,0.2);
+    --text: #E8EDF5;
+    --muted: #5A6478;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    height: 60px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    z-index: 1000;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, var(--sol-purple), var(--sol-green));
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  .logo span { color: var(--sol-green); }
+
+  .header-right { display: flex; align-items: center; gap: 12px; }
+
+  .stats-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(20,241,149,0.08);
+    border: 1px solid rgba(20,241,149,0.2);
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-family: 'Space Mono', monospace;
+    color: var(--sol-green);
+  }
+
+  .pulse-dot {
+    width: 7px; height: 7px;
+    background: var(--sol-green);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  /* Wallet button */
+  #walletBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, var(--sol-purple), #7B2FE0);
+    border: none;
+    color: #fff;
+    padding: 8px 18px;
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #walletBtn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  #walletBtn:hover::before { opacity: 1; }
+  #walletBtn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(153,69,255,0.4); }
+  #walletBtn:active { transform: translateY(0); }
+
+  #walletBtn.connected {
+    background: linear-gradient(135deg, rgba(20,241,149,0.15), rgba(20,241,149,0.05));
+    border: 1px solid rgba(20,241,149,0.4);
+    color: var(--sol-green);
+  }
+
+  .wallet-icon { font-size: 16px; }
+
+  /* ── Layout ── */
+  .app-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 340px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-top {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .search-wrap {
+    position: relative;
+    margin-bottom: 12px;
+  }
+
+  .search-wrap input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 14px 10px 38px;
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .search-wrap input:focus { border-color: var(--sol-purple); }
+  .search-wrap input::placeholder { color: var(--muted); }
+
+  .search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 15px;
+  }
+
+  .filter-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .filter-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 5px 12px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .filter-chip:hover, .filter-chip.active {
+    background: rgba(153,69,255,0.15);
+    border-color: var(--sol-purple);
+    color: var(--sol-purple);
+  }
+
+  .filter-chip.active { color: var(--sol-green); border-color: var(--sol-green); background: rgba(20,241,149,0.08); }
+
+  .businesses-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+
+  .businesses-list::-webkit-scrollbar { width: 4px; }
+  .businesses-list::-webkit-scrollbar-track { background: transparent; }
+  .businesses-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .biz-card {
+    background: var(--surface2);
+    border: 1px solid transparent;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    animation: slideIn 0.3s ease both;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .biz-card:hover, .biz-card.selected {
+    border-color: var(--sol-purple);
+    background: rgba(153,69,255,0.08);
+  }
+
+  .biz-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .biz-name {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .biz-category {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    background: rgba(153,69,255,0.15);
+    color: var(--sol-purple);
+    padding: 2px 8px;
+    border-radius: 100px;
+    white-space: nowrap;
+    margin-left: 8px;
+    flex-shrink: 0;
+  }
+
+  .biz-addr {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .biz-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sol-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    color: var(--sol-green);
+  }
+
+  .sol-logo {
+    width: 16px;
+    height: 16px;
+    background: linear-gradient(135deg, var(--sol-purple), var(--sol-green));
+    border-radius: 50%;
+  }
+
+  .biz-rating {
+    font-size: 12px;
+    color: #FFB800;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* ── Map ── */
+  #map {
+    width: 100%;
+    height: calc(100vh - 60px);
+    background: #0d1117;
+  }
+
+  .map-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Leaflet dark overrides */
+  .leaflet-container { background: #0d1117; }
+  .leaflet-control-zoom {
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+    overflow: hidden;
+  }
+  .leaflet-control-zoom a {
+    background: var(--surface2) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+    width: 32px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    font-size: 16px !important;
+  }
+  .leaflet-control-zoom a:hover { background: var(--sol-purple) !important; color: #fff !important; }
+  .leaflet-control-attribution {
+    background: rgba(13,17,23,0.7) !important;
+    color: rgba(255,255,255,0.3) !important;
+    font-size: 9px !important;
+  }
+  .leaflet-control-attribution a { color: rgba(255,255,255,0.4) !important; }
+
+  /* Custom marker */
+  .sol-marker {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--sol-purple), var(--sol-green));
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    border: 2px solid rgba(255,255,255,0.3);
+    box-shadow: 0 4px 20px rgba(153,69,255,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .sol-marker:hover {
+    box-shadow: 0 6px 28px rgba(153,69,255,0.9);
+  }
+
+  .sol-marker-inner {
+    transform: rotate(45deg);
+    font-size: 14px;
+    margin-top: -4px;
+    margin-left: -4px;
+  }
+
+  /* Popup */
+  .leaflet-popup-content-wrapper {
+    background: var(--surface2) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6) !important;
+    color: var(--text) !important;
+  }
+
+  .leaflet-popup-tip { background: var(--surface2) !important; }
+
+  .popup-body { padding: 4px; min-width: 200px; }
+  .popup-name { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+  .popup-cat {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    color: var(--sol-purple);
+    margin-bottom: 8px;
+  }
+  .popup-addr { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+  .popup-sol {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--sol-green);
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+  }
+
+  /* ── Add business modal ── */
+  .fab {
+    position: absolute;
+    bottom: 28px;
+    right: 28px;
+    z-index: 999;
+    width: 52px;
+    height: 52px;
+    background: linear-gradient(135deg, var(--sol-purple), var(--sol-green));
+    border: none;
+    border-radius: 50%;
+    font-size: 26px;
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 6px 28px rgba(153,69,255,0.5);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .fab:hover { transform: scale(1.1) rotate(45deg); box-shadow: 0 10px 40px rgba(153,69,255,0.7); }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(6px);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+    width: 420px;
+    max-width: 95vw;
+    animation: modalIn 0.25s ease;
+    box-shadow: 0 20px 80px rgba(0,0,0,0.8);
+  }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.92) translateY(12px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .modal h2 {
+    font-size: 20px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+
+  .modal .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  .form-group { margin-bottom: 14px; }
+
+  .form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .form-group input, .form-group select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .form-group input:focus, .form-group select:focus { border-color: var(--sol-purple); }
+  .form-group select option { background: var(--surface2); }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  .btn-cancel {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 11px;
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-cancel:hover { color: var(--text); border-color: var(--muted); }
+
+  .btn-submit {
+    flex: 2;
+    background: linear-gradient(135deg, var(--sol-purple), var(--sol-green));
+    border: none;
+    color: #fff;
+    padding: 11px;
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-submit:hover { box-shadow: 0 6px 24px rgba(153,69,255,0.4); transform: translateY(-1px); }
+
+  /* toast */
+  .toast {
+    position: fixed;
+    bottom: 88px;
+    right: 28px;
+    background: var(--surface2);
+    border: 1px solid rgba(20,241,149,0.3);
+    color: var(--sol-green);
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'Space Mono', monospace;
+    z-index: 3000;
+    transform: translateY(20px);
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+  }
+
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* Map container */
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">◎</div>
+    SOL <span>Spots</span>
+  </div>
+  <div class="header-right">
+    <div class="stats-pill">
+      <div class="pulse-dot"></div>
+      <span id="bizCount">12</span> locations
+    </div>
+    <button id="walletBtn" onclick="connectWallet()">
+      <span class="wallet-icon">◈</span>
+      Connect Solflare
+    </button>
+  </div>
+</header>
+
+<div class="app-body">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-top">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="searchInput" placeholder="Search businesses..." oninput="filterBusinesses()">
+      </div>
+      <div class="filter-row">
+        <div class="filter-chip active" onclick="setFilter('all', this)">All</div>
+        <div class="filter-chip" onclick="setFilter('food', this)">🍜 Food</div>
+        <div class="filter-chip" onclick="setFilter('retail', this)">🛍 Retail</div>
+        <div class="filter-chip" onclick="setFilter('services', this)">⚡ Services</div>
+        <div class="filter-chip" onclick="setFilter('coffee', this)">☕ Coffee</div>
+        <div class="filter-chip" onclick="setFilter('crypto', this)">◎ Crypto</div>
+      </div>
+    </div>
+    <div class="businesses-list" id="bizList"></div>
+  </div>
+
+  <!-- Map -->
+  <div class="map-wrap">
+    <div id="map"></div>
+    <button class="fab" onclick="openModal()" title="Add a business">+</button>
+  </div>
+</div>
+
+<!-- Add Business Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2>Add a Business</h2>
+    <p class="subtitle">List a business that accepts Solana payments</p>
+
+    <div class="form-group">
+      <label>Business Name</label>
+      <input type="text" id="fName" placeholder="e.g. Blue Bottle Coffee">
+    </div>
+    <div class="form-group">
+      <label>Address</label>
+      <input type="text" id="fAddr" placeholder="123 Main St, City, State">
+    </div>
+    <div class="form-group">
+      <label>Category</label>
+      <select id="fCat">
+        <option value="food">🍜 Food & Dining</option>
+        <option value="coffee">☕ Coffee & Drinks</option>
+        <option value="retail">🛍 Retail</option>
+        <option value="services">⚡ Services</option>
+        <option value="crypto">◎ Crypto / Web3</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Solana Pay Address</label>
+      <input type="text" id="fWallet" placeholder="Your SOL wallet address">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-submit" onclick="submitBusiness()">◎ Submit Listing</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Sample data ──
+const businesses = [
+  { id:1, name:"Cosmic Grounds Coffee", cat:"coffee", addr:"415 Valencia St, San Francisco, CA", lat:37.7631, lng:-122.4213, rating:"4.8" },
+  { id:2, name:"Block Ramen", cat:"food", addr:"220 Market St, San Francisco, CA", lat:37.7935, lng:-122.3964, rating:"4.6" },
+  { id:3, name:"Pixel Kicks Sneakers", cat:"retail", addr:"88 Haight St, San Francisco, CA", lat:37.7700, lng:-122.4308, rating:"4.7" },
+  { id:4, name:"Chain & Sprocket Bikes", cat:"services", addr:"900 Fell St, San Francisco, CA", lat:37.7735, lng:-122.4357, rating:"4.9" },
+  { id:5, name:"Node Collective", cat:"crypto", addr:"1 Market Plaza, San Francisco, CA", lat:37.7942, lng:-122.3949, rating:"5.0" },
+  { id:6, name:"The Hash House", cat:"food", addr:"531 Divisadero St, San Francisco, CA", lat:37.7750, lng:-122.4382, rating:"4.4" },
+  { id:7, name:"Ledger Laundry", cat:"services", addr:"2400 Mission St, San Francisco, CA", lat:37.7526, lng:-122.4186, rating:"4.2" },
+  { id:8, name:"Mint Leaf Dispensary", cat:"retail", addr:"1111 Folsom St, San Francisco, CA", lat:37.7738, lng:-122.4097, rating:"4.8" },
+  { id:9, name:"Solana Print Shop", cat:"services", addr:"77 5th St, San Francisco, CA", lat:37.7805, lng:-122.4043, rating:"4.5" },
+  { id:10, name:"Staked Tacos", cat:"food", addr:"640 Broadway, San Francisco, CA", lat:37.7985, lng:-122.4068, rating:"4.7" },
+  { id:11, name:"Keypair Barbers", cat:"services", addr:"330 Clement St, San Francisco, CA", lat:37.7827, lng:-122.4638, rating:"4.6" },
+  { id:12, name:"Genesis Vinyl", cat:"retail", addr:"3251 16th St, San Francisco, CA", lat:37.7649, lng:-122.4215, rating:"4.9" },
+];
+
+let activeFilter = 'all';
+let selectedId = null;
+let markers = {};
+let map;
+
+// emoji for category
+const catEmoji = { food:'🍜', coffee:'☕', retail:'🛍', services:'⚡', crypto:'◎' };
+
+// ── Init map ──
+function initMap() {
+  map = L.map('map', { zoomControl: true }).setView([37.775, -122.418], 13);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    maxZoom: 19,
+    subdomains: 'abcd',
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>'
+  }).addTo(map);
+
+  renderAll();
+  setTimeout(() => map.invalidateSize(), 200);
+}
+
+function renderAll() {
+  renderList();
+  renderMarkers();
+  document.getElementById('bizCount').textContent = getFiltered().length;
+}
+
+function getFiltered() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  return businesses.filter(b => {
+    const matchCat = activeFilter === 'all' || b.cat === activeFilter;
+    const matchQ = !q || b.name.toLowerCase().includes(q) || b.addr.toLowerCase().includes(q);
+    return matchCat && matchQ;
+  });
+}
+
+function renderList() {
+  const list = document.getElementById('bizList');
+  const filtered = getFiltered();
+  list.innerHTML = '';
+  filtered.forEach((b, i) => {
+    const card = document.createElement('div');
+    card.className = 'biz-card' + (b.id === selectedId ? ' selected' : '');
+    card.style.animationDelay = (i * 0.04) + 's';
+    card.innerHTML = `
+      <div class="biz-header">
+        <div class="biz-name">${b.name}</div>
+        <div class="biz-category">${catEmoji[b.cat]} ${b.cat}</div>
+      </div>
+      <div class="biz-addr">📍 ${b.addr}</div>
+      <div class="biz-footer">
+        <div class="sol-badge"><div class="sol-logo"></div> Accepts SOL</div>
+        <div class="biz-rating">★ ${b.rating}</div>
+      </div>
+    `;
+    card.onclick = () => selectBiz(b.id);
+    list.appendChild(card);
+  });
+}
+
+function renderMarkers() {
+  // Clear old
+  Object.values(markers).forEach(m => map.removeLayer(m));
+  markers = {};
+
+  getFiltered().forEach(b => {
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="sol-marker"><div class="sol-marker-inner">${catEmoji[b.cat]}</div></div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 36],
+      popupAnchor: [0, -38],
+    });
+
+    const marker = L.marker([b.lat, b.lng], { icon }).addTo(map);
+    marker.bindPopup(`
+      <div class="popup-body">
+        <div class="popup-name">${b.name}</div>
+        <div class="popup-cat">${catEmoji[b.cat]} ${b.cat.toUpperCase()}</div>
+        <div class="popup-addr">📍 ${b.addr}</div>
+        <div class="popup-sol"><div class="sol-logo" style="width:14px;height:14px;border-radius:50%;background:linear-gradient(135deg,#9945FF,#14F195);"></div> ◎ Accepts Solana Pay</div>
+      </div>
+    `, { maxWidth: 260 });
+
+    marker.on('click', () => selectBiz(b.id));
+    markers[b.id] = marker;
+  });
+}
+
+function selectBiz(id) {
+  selectedId = id;
+  const b = businesses.find(x => x.id === id);
+  if (!b) return;
+  map.flyTo([b.lat, b.lng], 16, { duration: 0.8 });
+  markers[id]?.openPopup();
+  renderList();
+}
+
+function setFilter(f, el) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderAll();
+}
+
+function filterBusinesses() { renderAll(); }
+
+// ── Wallet ──
+async function connectWallet() {
+  const btn = document.getElementById('walletBtn');
+
+  if (btn.classList.contains('connected')) {
+    btn.classList.remove('connected');
+    btn.innerHTML = '<span class="wallet-icon">◈</span> Connect Solflare';
+    showToast('Wallet disconnected');
+    return;
+  }
+
+  btn.innerHTML = '<span class="wallet-icon">◈</span> Connecting...';
+
+  // Try real Solflare
+  if (window.solflare && window.solflare.isSolflare) {
+    try {
+      await window.solflare.connect();
+      const addr = window.solflare.publicKey.toString();
+      const short = addr.slice(0,4) + '…' + addr.slice(-4);
+      btn.classList.add('connected');
+      btn.innerHTML = `◈ ${short}`;
+      showToast('✓ Solflare connected!');
+      return;
+    } catch(e) {}
+  }
+
+  // Demo fallback
+  await new Promise(r => setTimeout(r, 900));
+  btn.classList.add('connected');
+  btn.innerHTML = '◈ 7xKp…3mWq';
+  showToast('✓ Solflare connected (demo)');
+}
+
+// ── Modal ──
+function openModal() {
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+}
+
+function submitBusiness() {
+  const name = document.getElementById('fName').value.trim();
+  const addr = document.getElementById('fAddr').value.trim();
+  const cat  = document.getElementById('fCat').value;
+
+  if (!name || !addr) { showToast('⚠ Please fill in name and address'); return; }
+
+  // Fake lat/lng near SF center for demo
+  const newBiz = {
+    id: Date.now(),
+    name, cat, addr,
+    lat: 37.7749 + (Math.random() - 0.5) * 0.05,
+    lng: -122.4194 + (Math.random() - 0.5) * 0.05,
+    rating: (4.0 + Math.random()).toFixed(1)
+  };
+
+  businesses.push(newBiz);
+  closeModal();
+  renderAll();
+  document.getElementById('bizCount').textContent = getFiltered().length;
+  setTimeout(() => selectBiz(newBiz.id), 400);
+  showToast('✓ Business listed on the map!');
+
+  // Reset
+  ['fName','fAddr','fWallet'].forEach(id => document.getElementById(id).value = '');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Click outside modal to close
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal')) closeModal();
+});
+
+initMap();
+</script>
+</body>
+</html>
