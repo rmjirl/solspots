@@ -46,8 +46,11 @@ function LeafletMap({ businesses, selected, onMarkerClick, filter }) {
     const L = window.L;
     const map = L.map(mapRef.current, { zoomControl: true, attributionControl: false })
       .setView([37.775, -122.418], 13);
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-      maxZoom: 19, subdomains: "abcd"
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png", {
+      maxZoom: 19, subdomains: "abcd", opacity: 0.85
+    }).addTo(map);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png", {
+      maxZoom: 19, subdomains: "abcd", opacity: 1
     }).addTo(map);
     leafletMap.current = map;
     setTimeout(() => map.invalidateSize(), 100);
@@ -63,14 +66,20 @@ function LeafletMap({ businesses, selected, onMarkerClick, filter }) {
     const visible = filter === "all" ? businesses : businesses.filter(b => b.cat === filter);
     visible.forEach(b => {
       const isSel = selected?.id === b.id;
-      const color = isSel ? "#14F195" : "#9945FF";
-      const size = isSel ? 18 : 13;
+      const bgColor = isSel ? "#14F195" : "#1a0a2e";
+      const borderColor = isSel ? "#fff" : "#9945FF";
+      const emoji = CAT_EMOJI[b.cat];
+      const size = isSel ? 40 : 34;
+      const fontSize = isSel ? 16 : 14;
       const icon = L.divIcon({
         className: "",
-        html: `<div style="width:${size}px;height:${size}px;background:${color};border:2px solid ${isSel ? "#fff" : "rgba(255,255,255,0.35)"};border-radius:50%;box-shadow:0 0 ${isSel ? 16 : 8}px ${color};transition:all 0.2s;"></div>`,
-        iconSize: [size, size], iconAnchor: [size/2, size/2],
+        html: `<div style="width:${size}px;height:${size}px;background:${bgColor};border:2px solid ${borderColor};border-radius:50%;box-shadow:0 0 ${isSel ? 18 : 10}px ${isSel ? "#14F195" : "#9945FF"};display:flex;align-items:center;justify-content:center;font-size:${fontSize}px;transition:all 0.2s;cursor:pointer;">${emoji}</div>`,
+        iconSize: [size, size],
+        iconAnchor: [size/2, size/2],
       });
-      markersRef.current[b.id] = L.marker([b.lat, b.lng], { icon }).addTo(map).on("click", () => onMarkerClick(b));
+      markersRef.current[b.id] = L.marker([b.lat, b.lng], { icon })
+        .addTo(map)
+        .on("click", () => onMarkerClick(b));
     });
   }, [ready, businesses, selected, filter]);
 
@@ -180,18 +189,18 @@ export default function SolSpots() {
       `}</style>
 
       {/* Header */}
-      <header style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 16px", height:52, background:C.surface, borderBottom:`1px solid ${C.border}`, flexShrink:0, zIndex:10 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8, fontWeight:800, fontSize:18, letterSpacing:-0.5 }}>
+      <header style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 14px", height:56, background:C.surface, borderBottom:`1px solid ${C.border}`, flexShrink:0, zIndex:10, gap:8 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, fontWeight:800, fontSize:18, letterSpacing:-0.5, flexShrink:0 }}>
           <div style={{ width:28, height:28, background:"linear-gradient(135deg,#9945FF,#14F195)", borderRadius:7, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>◎</div>
           SOL <span style={{ color:C.green }}>Spots</span>
         </div>
-        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(20,241,149,0.07)", border:"1px solid rgba(20,241,149,0.2)", padding:"4px 12px", borderRadius:100, fontSize:12, fontFamily:"monospace", color:C.green }}>
-            <div style={{ width:6, height:6, background:C.green, borderRadius:"50%", animation:"pulse 2s infinite" }}/>
+        <div style={{ display:"flex", gap:6, alignItems:"center", flexShrink:0 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(20,241,149,0.07)", border:"1px solid rgba(20,241,149,0.2)", padding:"5px 10px", borderRadius:8, fontSize:12, fontFamily:"monospace", color:C.green, whiteSpace:"nowrap" }}>
+            <div style={{ width:6, height:6, background:C.green, borderRadius:"50%", animation:"pulse 2s infinite", flexShrink:0 }}/>
             {filtered.length} locations
           </div>
-          <button onClick={() => { setWallet(w => w ? null : "7xKp…3mWq"); showToast(wallet ? "Disconnected" : "✓ Connected (demo)"); }} style={{ display:"flex", alignItems:"center", gap:6, background: wallet ? "rgba(20,241,149,0.08)" : "rgba(153,69,255,0.1)", border:`1px solid ${wallet ? "rgba(20,241,149,0.35)" : C.borderHi}`, color: wallet ? C.green : "#C084FC", padding:"6px 14px", borderRadius:100, fontFamily:"monospace", fontSize:12, cursor:"pointer" }}>
-            ◈ {wallet ?? "Connect Solflare"}
+          <button onClick={() => { setWallet(w => w ? null : "7xKp…3mWq"); showToast(wallet ? "Disconnected" : "✓ Connected (demo)"); }} style={{ display:"flex", alignItems:"center", gap:5, background: wallet ? "rgba(20,241,149,0.08)" : "rgba(153,69,255,0.1)", border:`1px solid ${wallet ? "rgba(20,241,149,0.35)" : C.borderHi}`, color: wallet ? C.green : "#C084FC", padding:"5px 10px", borderRadius:8, fontFamily:"monospace", fontSize:12, cursor:"pointer", whiteSpace:"nowrap" }}>
+            ◈ {wallet ? wallet : "Connect Solflare"}
           </button>
         </div>
       </header>
@@ -199,7 +208,6 @@ export default function SolSpots() {
       {/* Body */}
       <div style={{ flex:1, display:"flex", overflow:"hidden", position:"relative" }}>
 
-        {/* Desktop sidebar */}
         {!isMobile && (
           <div style={{ width:320, flexShrink:0, background:C.surface, borderRight:`1px solid ${C.border}`, display:"flex", flexDirection:"column", overflow:"hidden" }}>
             <div style={{ padding:12, borderBottom:`1px solid ${C.border}` }}>
@@ -233,12 +241,11 @@ export default function SolSpots() {
           </div>
         )}
 
-        {/* Map */}
         <div style={{ flex:1, position:"relative", overflow:"hidden" }}>
           <LeafletMap businesses={businesses} selected={selected} filter={filter} onMarkerClick={b => selectBiz(b, isMobile)} />
 
           {selected && (
-            <div style={{ position:"absolute", top:12, left:"50%", transform:"translateX(-50%)", background:"rgba(14,20,32,0.97)", backdropFilter:"blur(16px)", border:`1px solid ${C.borderHi}`, borderRadius:14, padding:"11px 16px", minWidth:230, zIndex:500, animation:"slideUp 0.2s ease" }}>
+            <div style={{ position:"absolute", top:12, left:"50%", transform:"translateX(-50%)", background:"rgba(14,20,32,0.97)", backdropFilter:"blur(16px)", border:`1px solid ${C.borderHi}`, borderRadius:14, padding:"11px 16px", minWidth:230, maxWidth:"85vw", zIndex:500, animation:"slideUp 0.2s ease" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                 <div>
                   <div style={{ fontWeight:800, fontSize:14, color:C.text, marginBottom:2 }}>{selected.name}</div>
@@ -254,10 +261,9 @@ export default function SolSpots() {
             </div>
           )}
 
-          <button onClick={() => setModal(true)} style={{ position:"absolute", bottom: isMobile ? 88 : 20, right:16, zIndex:5, width:48, height:48, background:"linear-gradient(135deg,#9945FF,#14F195)", border:"none", borderRadius:"50%", fontSize:24, color:"#fff", cursor:"pointer", boxShadow:"0 6px 24px rgba(153,69,255,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
+          <button onClick={() => setModal(true)} style={{ position:"absolute", bottom: isMobile ? 96 : 20, right:16, zIndex:5, width:48, height:48, background:"linear-gradient(135deg,#9945FF,#14F195)", border:"none", borderRadius:"50%", fontSize:24, color:"#fff", cursor:"pointer", boxShadow:"0 6px 24px rgba(153,69,255,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
         </div>
 
-        {/* Mobile bottom sheet */}
         {isMobile && (
           <div style={{ position:"absolute", left:0, right:0, bottom:0, zIndex:20, display:"flex", flexDirection:"column", pointerEvents:"none" }}>
             <div style={{ background:"rgba(7,9,14,0.97)", backdropFilter:"blur(20px)", borderTop:`1px solid ${C.border}`, maxHeight: drawerOpen ? "52vh" : 0, overflow:"hidden", transition:"max-height 0.35s cubic-bezier(0.4,0,0.2,1)", pointerEvents:"all", display:"flex", flexDirection:"column" }}>
@@ -292,9 +298,11 @@ export default function SolSpots() {
                 ))}
               </div>
             </div>
-            <div style={{ pointerEvents:"all", background:"rgba(7,9,14,0.95)", backdropFilter:"blur(16px)", borderTop:`1px solid ${C.border}`, padding:"10px 14px 18px", display:"flex", gap:7, overflowX:"auto", scrollbarWidth:"none" }}>
+
+            {/* Category pills - FIXED: square-ish corners, proper spacing */}
+            <div style={{ pointerEvents:"all", background:"rgba(7,9,14,0.97)", backdropFilter:"blur(16px)", borderTop:`1px solid ${C.border}`, padding:"8px 12px 20px", display:"flex", gap:6, overflowX:"auto", scrollbarWidth:"none", alignItems:"center" }}>
               {CATEGORIES.map(c => (
-                <div key={c} style={{ display:"flex", alignItems:"center", gap:5, background: filter===c ? "rgba(20,241,149,0.08)" : C.surface2, border:`1px solid ${filter===c ? C.green : C.border}`, color: filter===c ? C.green : C.textSub, padding:"7px 14px", borderRadius:100, fontSize:13, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0, transition:"all 0.2s" }} onClick={() => setMobileFilter(c)}>
+                <div key={c} style={{ display:"flex", alignItems:"center", gap:5, background: filter===c ? "rgba(20,241,149,0.1)" : C.surface2, border:`1px solid ${filter===c ? C.green : C.border}`, color: filter===c ? C.green : C.textSub, padding:"7px 13px", borderRadius:8, fontSize:13, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0, transition:"all 0.2s" }} onClick={() => setMobileFilter(c)}>
                   {c==="all" ? "📍 All" : `${CAT_EMOJI[c]} ${c[0].toUpperCase()+c.slice(1)}`}
                 </div>
               ))}
@@ -303,7 +311,6 @@ export default function SolSpots() {
         )}
       </div>
 
-      {/* Modal */}
       {modalOpen && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", backdropFilter:"blur(10px)", zIndex:100, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }} onClick={e => e.target===e.currentTarget && setModal(false)}>
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:20, padding:24, width:"100%", maxWidth:400, maxHeight:"85vh", overflowY:"auto" }}>
@@ -333,7 +340,7 @@ export default function SolSpots() {
         </div>
       )}
 
-      <div style={{ position:"fixed", bottom:90, right:16, background:C.surface, border:"1px solid rgba(20,241,149,0.3)", color:C.green, padding:"10px 18px", borderRadius:12, fontSize:13, fontWeight:600, fontFamily:"monospace", zIndex:200, pointerEvents:"none", transform: toast.vis ? "translateY(0)" : "translateY(20px)", opacity: toast.vis ? 1 : 0, transition:"all 0.3s" }}>
+      <div style={{ position:"fixed", bottom:100, right:16, background:C.surface, border:"1px solid rgba(20,241,149,0.3)", color:C.green, padding:"10px 18px", borderRadius:12, fontSize:13, fontWeight:600, fontFamily:"monospace", zIndex:200, pointerEvents:"none", transform: toast.vis ? "translateY(0)" : "translateY(20px)", opacity: toast.vis ? 1 : 0, transition:"all 0.3s" }}>
         {toast.msg}
       </div>
     </div>
