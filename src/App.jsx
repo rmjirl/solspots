@@ -309,6 +309,7 @@ export default function SolSpots() {
         .leaflet-container{background:#0D1117!important;}
       `}</style>
 
+      {/* Header */}
       <header style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 14px", height:52, background:C.surface, borderBottom:`1px solid ${C.border}`, flexShrink:0, zIndex:10, gap:8 }}>
         <div style={{ display:"flex", alignItems:"center", gap:8, fontWeight:800, fontSize:18, letterSpacing:-0.5, flexShrink:0 }}>
           <div style={{ width:28, height:28, background:"linear-gradient(135deg,#9945FF,#14F195)", borderRadius:7, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>◎</div>
@@ -327,7 +328,10 @@ export default function SolSpots() {
         </div>
       </header>
 
+      {/* Body */}
       <div style={{ flex:1, display:"flex", overflow:"hidden", position:"relative" }}>
+
+        {/* Desktop sidebar */}
         {!isMobile && (
           <div style={{ width:320, flexShrink:0, background:C.surface, borderRight:`1px solid ${C.border}`, display:"flex", flexDirection:"column", overflow:"hidden" }}>
             <div style={{ padding:12, borderBottom:`1px solid ${C.border}` }}>
@@ -361,6 +365,7 @@ export default function SolSpots() {
           </div>
         )}
 
+        {/* Map */}
         <div style={{ flex:1, position:"relative", overflow:"hidden", marginBottom: isMobile ? BOTTOM_BAR_H : 0 }}>
           <LeafletMap
             businesses={businesses}
@@ -370,6 +375,7 @@ export default function SolSpots() {
             onPeterCooperClick={() => { setSelected(null); setPcPopup(p => !p); }}
           />
 
+          {/* Mobile locations badge */}
           {isMobile && (
             <div style={{ position:"absolute", top:10, right:10, zIndex:400, display:"flex", alignItems:"center", gap:5, background:"rgba(7,9,14,0.88)", backdropFilter:"blur(10px)", border:"1px solid rgba(20,241,149,0.25)", padding:"5px 10px", borderRadius:8, fontSize:12, fontFamily:"monospace", color:C.green, whiteSpace:"nowrap" }}>
               <div style={{ width:6, height:6, background:C.green, borderRadius:"50%", animation:"pulse 2s infinite" }}/>
@@ -377,6 +383,7 @@ export default function SolSpots() {
             </div>
           )}
 
+          {/* Peter Cooper popup */}
           {pcPopup && (
             <div style={{ position:"absolute", top:12, left:"50%", transform:"translateX(-50%)", background:"rgba(14,20,32,0.97)", backdropFilter:"blur(16px)", border:"1px solid rgba(20,241,149,0.45)", borderRadius:14, padding:"11px 16px", minWidth:230, maxWidth:"80vw", zIndex:500, animation:"slideUp 0.2s ease" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
@@ -393,6 +400,7 @@ export default function SolSpots() {
             </div>
           )}
 
+          {/* Business popup */}
           {selected && (
             <div style={{ position:"absolute", top:12, left:"50%", transform:"translateX(-50%)", background:"rgba(14,20,32,0.97)", backdropFilter:"blur(16px)", border:`1px solid ${C.borderHi}`, borderRadius:14, padding:"11px 16px", minWidth:230, maxWidth:"80vw", zIndex:500, animation:"slideUp 0.2s ease" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
@@ -409,10 +417,9 @@ export default function SolSpots() {
               </div>
             </div>
           )}
-
-          <button onClick={() => setModal(true)} style={{ position:"absolute", bottom: isMobile ? BOTTOM_BAR_H + 12 : 20, right:16, zIndex:450, width:48, height:48, background:"linear-gradient(135deg,#9945FF,#14F195)", border:"none", borderRadius:"50%", fontSize:24, color:"#fff", cursor:"pointer", boxShadow:"0 6px 24px rgba(153,69,255,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
         </div>
 
+        {/* Mobile bottom drawer + pills */}
         {isMobile && (
           <div style={{ position:"fixed", left:0, right:0, bottom:0, zIndex:50, display:"flex", flexDirection:"column" }}>
             {drawerOpen && (
@@ -460,8 +467,15 @@ export default function SolSpots() {
         )}
       </div>
 
+      {/* FAB — fixed at root level, always on top */}
+      <button
+        onClick={() => setModal(true)}
+        style={{ position:"fixed", bottom: isMobile ? BOTTOM_BAR_H + 16 : 20, right:16, zIndex:150, width:52, height:52, background:"linear-gradient(135deg,#9945FF,#14F195)", border:"none", borderRadius:"50%", fontSize:26, color:"#fff", cursor:"pointer", boxShadow:"0 6px 24px rgba(153,69,255,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}
+      >+</button>
+
+      {/* Add Business Modal */}
       {modalOpen && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", backdropFilter:"blur(10px)", zIndex:100, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }} onClick={e => e.target===e.currentTarget && setModal(false)}>
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", backdropFilter:"blur(10px)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }} onClick={e => e.target===e.currentTarget && setModal(false)}>
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:20, padding:24, width:"100%", maxWidth:400, maxHeight:"85vh", overflowY:"auto" }}>
             <div style={{ fontSize:20, fontWeight:800, color:C.text, marginBottom:4 }}>Add a Business</div>
             <div style={{ fontSize:13, color:C.textSub, marginBottom:18 }}>List a business that accepts Solana payments</div>
@@ -492,7 +506,8 @@ export default function SolSpots() {
         </div>
       )}
 
-      <div style={{ position:"fixed", bottom:80, right:16, background:C.surface, border:"1px solid rgba(20,241,149,0.3)", color:C.green, padding:"10px 18px", borderRadius:12, fontSize:13, fontWeight:600, fontFamily:"monospace", zIndex:200, pointerEvents:"none", transform: toast.vis ? "translateY(0)" : "translateY(20px)", opacity: toast.vis ? 1 : 0, transition:"all 0.3s" }}>
+      {/* Toast */}
+      <div style={{ position:"fixed", bottom:80, right:16, background:C.surface, border:"1px solid rgba(20,241,149,0.3)", color:C.green, padding:"10px 18px", borderRadius:12, fontSize:13, fontWeight:600, fontFamily:"monospace", zIndex:300, pointerEvents:"none", transform: toast.vis ? "translateY(0)" : "translateY(20px)", opacity: toast.vis ? 1 : 0, transition:"all 0.3s" }}>
         {toast.msg}
       </div>
     </div>
