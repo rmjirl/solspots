@@ -242,7 +242,7 @@ export default function SolSpots() {
           </div>
         )}
 
-        <div style={{ flex:1, position:"relative", overflow:"hidden" }}>
+        <div style={{ flex:1, position:"relative", overflow:"hidden", marginBottom: isMobile ? BOTTOM_BAR_H : 0 }}>
           <LeafletMap businesses={businesses} selected={selected} filter={filter} onMarkerClick={b => selectBiz(b, isMobile)} />
 
           {isMobile && (
@@ -273,9 +273,9 @@ export default function SolSpots() {
         </div>
 
         {isMobile && (
-          <div style={{ position:"absolute", left:0, right:0, bottom:0, zIndex:20, display:"flex", flexDirection:"column" }}>
+          <div style={{ position:"fixed", left:0, right:0, bottom:0, zIndex:50, display:"flex", flexDirection:"column" }}>
             {drawerOpen && (
-              <div style={{ background:"#07090E", borderTop:`1px solid ${C.border}`, maxHeight:"52vh", overflow:"hidden", display:"flex", flexDirection:"column" }}>
+              <div style={{ background:"#07090E", borderTop:`1px solid ${C.border}`, maxHeight:"52vh", overflow:"hidden", display:"flex", flexDirection:"column", isolation:"isolate" }}>
                 <div style={{ width:32, height:4, background:"rgba(255,255,255,0.12)", borderRadius:2, margin:"8px auto 0", flexShrink:0 }}/>
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"8px 14px", borderBottom:"1px solid rgba(153,69,255,0.12)", flexShrink:0 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, fontWeight:700, color:C.text }}>
