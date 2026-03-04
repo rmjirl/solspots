@@ -104,10 +104,10 @@ const BUSINESSES = [
 ];
 
 const PETER_COOPER = { lat: 40.7318, lng: -73.9775 };
-
-const CAT_EMOJI  = { atm:"🏧", cafe:"☕", restaurant:"🍽", shopping:"🛍", grocery:"🛒", beauty:"💅", apparel:"👕", gas:"⛽" };
-const CAT_LABEL  = { all:"All Spots", atm:"ATM / OTC", cafe:"Cafés", restaurant:"Restaurants", shopping:"Shopping", grocery:"Groceries", beauty:"Beauty Salons", apparel:"Apparel", gas:"Gas" };
+const CAT_EMOJI = { atm:"🏧", cafe:"☕", restaurant:"🍽", shopping:"🛍", grocery:"🛒", beauty:"💅", apparel:"👕", gas:"⛽" };
+const CAT_LABEL = { all:"All Spots", atm:"ATM / OTC", cafe:"Cafés", restaurant:"Restaurants", shopping:"Shopping", grocery:"Groceries", beauty:"Beauty Salons", apparel:"Apparel", gas:"Gas" };
 const CATEGORIES = ["all","atm","cafe","restaurant","shopping","grocery","beauty","apparel","gas"];
+const BOTTOM_BAR_H = 68;
 
 function useLeaflet(onReady) {
   useEffect(() => {
@@ -152,19 +152,15 @@ function LeafletMap({ businesses, selected, onMarkerClick, filter, onPeterCooper
     if (pcMarkerRef.current) pcMarkerRef.current.remove();
     const icon = L.divIcon({
       className: "",
-      html: `
-        <div style="position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
-          <div style="position:absolute;width:40px;height:40px;border-radius:50%;background:rgba(20,241,149,0.25);animation:pcPulse 1.8s ease-out infinite;"></div>
-          <div style="position:absolute;width:28px;height:28px;border-radius:50%;background:rgba(20,241,149,0.35);animation:pcPulse 1.8s ease-out infinite 0.3s;"></div>
-          <div style="position:relative;width:18px;height:18px;background:#14F195;border:2px solid #fff;border-radius:50%;box-shadow:0 0 12px #14F195;cursor:pointer;z-index:2;"></div>
-        </div>
-      `,
-      iconSize: [40, 40],
-      iconAnchor: [20, 20],
+      html: `<div style="position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
+        <div style="position:absolute;width:40px;height:40px;border-radius:50%;background:rgba(20,241,149,0.25);animation:pcPulse 1.8s ease-out infinite;"></div>
+        <div style="position:absolute;width:28px;height:28px;border-radius:50%;background:rgba(20,241,149,0.35);animation:pcPulse 1.8s ease-out infinite 0.3s;"></div>
+        <div style="position:relative;width:18px;height:18px;background:#14F195;border:2px solid #fff;border-radius:50%;box-shadow:0 0 12px #14F195;cursor:pointer;z-index:2;"></div>
+      </div>`,
+      iconSize: [40, 40], iconAnchor: [20, 20],
     });
     pcMarkerRef.current = L.marker([PETER_COOPER.lat, PETER_COOPER.lng], { icon, zIndexOffset: 1000 })
-      .addTo(map)
-      .on("click", onPeterCooperClick);
+      .addTo(map).on("click", onPeterCooperClick);
   }, [ready, onPeterCooperClick]);
 
   useEffect(() => {
@@ -176,20 +172,15 @@ function LeafletMap({ businesses, selected, onMarkerClick, filter, onPeterCooper
     const visible = filter === "all" ? businesses : businesses.filter(b => b.cat === filter);
     visible.forEach(b => {
       const isSel = selected?.id === b.id;
-      const bgColor = isSel ? "#14F195" : "#1a0a2e";
-      const borderColor = isSel ? "#fff" : "#9945FF";
-      const emoji = CAT_EMOJI[b.cat];
       const size = isSel ? 40 : 32;
       const fontSize = isSel ? 16 : 13;
       const icon = L.divIcon({
         className: "",
-        html: `<div style="width:${size}px;height:${size}px;background:${bgColor};border:2px solid ${borderColor};border-radius:50%;box-shadow:0 0 ${isSel?18:8}px ${isSel?"#14F195":"#9945FF"};display:flex;align-items:center;justify-content:center;font-size:${fontSize}px;cursor:pointer;">${emoji}</div>`,
-        iconSize: [size, size],
-        iconAnchor: [size/2, size/2],
+        html: `<div style="width:${size}px;height:${size}px;background:${isSel?"#14F195":"#1a0a2e"};border:2px solid ${isSel?"#fff":"#9945FF"};border-radius:50%;box-shadow:0 0 ${isSel?18:8}px ${isSel?"#14F195":"#9945FF"};display:flex;align-items:center;justify-content:center;font-size:${fontSize}px;cursor:pointer;">${CAT_EMOJI[b.cat]}</div>`,
+        iconSize: [size, size], iconAnchor: [size/2, size/2],
       });
       markersRef.current[b.id] = L.marker([b.lat, b.lng], { icon })
-        .addTo(map)
-        .on("click", () => onMarkerClick(b));
+        .addTo(map).on("click", () => onMarkerClick(b));
     });
   }, [ready, businesses, selected, filter]);
 
@@ -200,35 +191,24 @@ function LeafletMap({ businesses, selected, onMarkerClick, filter, onPeterCooper
 
   return (
     <>
-      <style>{`
-        @keyframes pcPulse {
-          0% { transform: scale(0.8); opacity: 0.9; }
-          100% { transform: scale(2.2); opacity: 0; }
-        }
-      `}</style>
-      <div ref={mapRef} style={{ width:"100%", height:"100%", background:"#0D1117" }}>
-        {!ready && (
-          <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.25)", fontSize:13, fontFamily:"monospace", background:"#0D1117" }}>
-            Loading map...
-          </div>
-        )}
-      </div>
+      <style>{`@keyframes pcPulse{0%{transform:scale(0.8);opacity:0.9;}100%{transform:scale(2.2);opacity:0;}}`}</style>
+      <div ref={mapRef} style={{ width:"100%", height:"100%", background:"#0D1117" }} />
     </>
   );
 }
 
 export default function SolSpots() {
-  const [filter, setFilter]     = useState("all");
-  const [search, setSearch]     = useState("");
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [drawerOpen, setDrawer] = useState(false);
-  const [modalOpen, setModal]   = useState(false);
-  const [businesses, setBiz]    = useState(BUSINESSES);
-  const [toast, setToast]       = useState({ msg:"", vis:false });
-  const [isMobile, setMobile]   = useState(window.innerWidth < 768);
-  const [wallet, setWallet]     = useState(null);
-  const [form, setForm]         = useState({ name:"", addr:"", cat:"cafe", wallet:"" });
-  const [pcPopup, setPcPopup]   = useState(false);
+  const [modalOpen, setModal] = useState(false);
+  const [businesses, setBiz] = useState(BUSINESSES);
+  const [toast, setToast] = useState({ msg:"", vis:false });
+  const [isMobile, setMobile] = useState(window.innerWidth < 768);
+  const [wallet, setWallet] = useState(null);
+  const [form, setForm] = useState({ name:"", addr:"", cat:"cafe", wallet:"" });
+  const [pcPopup, setPcPopup] = useState(false);
 
   useEffect(() => {
     const fn = () => setMobile(window.innerWidth < 768);
@@ -247,10 +227,9 @@ export default function SolSpots() {
     return matchCat && (!q || b.name.toLowerCase().includes(q) || b.addr.toLowerCase().includes(q));
   });
 
-  const selectBiz = (b, closeDrawer) => {
-    setSelected(b);
-    setPcPopup(false);
-    if (closeDrawer) setTimeout(() => setDrawer(false), 200);
+  const selectBiz = (b, close) => {
+    setSelected(b); setPcPopup(false);
+    if (close) setTimeout(() => setDrawer(false), 200);
   };
 
   const setMobileFilter = (f) => {
@@ -260,7 +239,9 @@ export default function SolSpots() {
 
   const submitBiz = () => {
     if (!form.name || !form.addr) { showToast("⚠ Fill in name and address"); return; }
-    const nb = { id:Date.now(), name:form.name, cat:form.cat, addr:form.addr, lat:40.728+(Math.random()-0.5)*0.05, lng:-73.9855+(Math.random()-0.5)*0.05, rating:(4+Math.random()).toFixed(1) };
+    const nb = { id:Date.now(), name:form.name, cat:form.cat, addr:form.addr,
+      lat:40.728+(Math.random()-0.5)*0.05, lng:-73.9855+(Math.random()-0.5)*0.05,
+      rating:(4+Math.random()).toFixed(1) };
     setBiz(prev => [...prev, nb]);
     setModal(false);
     setForm({ name:"", addr:"", cat:"cafe", wallet:"" });
@@ -271,34 +252,18 @@ export default function SolSpots() {
     bg:"#07090E", surface:"#0E1420", surface2:"#141A26",
     border:"rgba(153,69,255,0.18)", borderHi:"rgba(153,69,255,0.45)",
     purple:"#9945FF", green:"#14F195",
-    text:"#F0F4FF", textSub:"#8A95B0", textDim:"#4A5568",
-    gold:"#FFB800",
+    text:"#F0F4FF", textSub:"#8A95B0", textDim:"#4A5568", gold:"#FFB800",
   };
 
-  const chipStyle = (active) => ({
-    display:"flex", alignItems:"center", gap:5,
-    background: active ? "rgba(20,241,149,0.1)" : C.surface2,
-    border:`1px solid ${active ? C.green : C.border}`,
-    color: active ? C.green : C.textSub,
-    padding:"4px 10px", borderRadius:100, fontSize:11, fontWeight:700,
-    cursor:"pointer", whiteSpace:"nowrap", transition:"all 0.15s",
-  });
-
-  const cardStyle = (sel) => ({
-    background: sel ? "rgba(153,69,255,0.08)" : C.surface2,
-    border:`1px solid ${sel ? C.purple : "transparent"}`,
-    borderRadius:12, padding:12, marginBottom:7, cursor:"pointer", transition:"all 0.15s",
-  });
-
-  const inputStyle = { width:"100%", background:C.surface2, border:`1px solid ${C.border}`, color:C.text, padding:"9px 12px", borderRadius:10, fontFamily:"inherit", fontSize:13, outline:"none" };
-  const labelStyle = { display:"block", fontSize:11, fontWeight:600, color:C.textSub, textTransform:"uppercase", letterSpacing:0.5, marginBottom:5, fontFamily:"monospace" };
-  const BOTTOM_BAR_H = 68;
+  const inp = { width:"100%", background:C.surface2, border:`1px solid ${C.border}`, color:C.text, padding:"9px 12px", borderRadius:10, fontFamily:"inherit", fontSize:13, outline:"none" };
+  const lbl = { display:"block", fontSize:11, fontWeight:600, color:C.textSub, textTransform:"uppercase", letterSpacing:0.5, marginBottom:5, fontFamily:"monospace" };
 
   return (
-    <div style={{ fontFamily:"'Syne','Segoe UI',sans-serif", background:C.bg, color:C.text, height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+    <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
+        html,body{height:100%;overflow:hidden;}
         ::-webkit-scrollbar{width:3px;height:3px;}
         ::-webkit-scrollbar-thumb{background:rgba(153,69,255,0.3);border-radius:3px;}
         @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.8)}}
@@ -309,185 +274,184 @@ export default function SolSpots() {
         .leaflet-container{background:#0D1117!important;}
       `}</style>
 
-      {/* Header */}
-      <header style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 14px", height:52, background:C.surface, borderBottom:`1px solid ${C.border}`, flexShrink:0, zIndex:10, gap:8 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8, fontWeight:800, fontSize:18, letterSpacing:-0.5, flexShrink:0 }}>
-          <div style={{ width:28, height:28, background:"linear-gradient(135deg,#9945FF,#14F195)", borderRadius:7, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>◎</div>
-          SOL <span style={{ color:C.green }}>Spots</span>
-        </div>
-        <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-          {!isMobile && (
-            <div style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(20,241,149,0.07)", border:"1px solid rgba(20,241,149,0.2)", padding:"5px 10px", borderRadius:8, fontSize:12, fontFamily:"monospace", color:C.green, whiteSpace:"nowrap" }}>
-              <div style={{ width:6, height:6, background:C.green, borderRadius:"50%", animation:"pulse 2s infinite" }}/>
-              {filtered.length} locations
-            </div>
-          )}
-          <button onClick={() => { setWallet(w => w ? null : "7xKp…3mWq"); showToast(wallet ? "Disconnected" : "✓ Connected (demo)"); }} style={{ display:"flex", alignItems:"center", gap:5, background: wallet ? "rgba(20,241,149,0.08)" : "rgba(153,69,255,0.1)", border:`1px solid ${wallet ? "rgba(20,241,149,0.35)" : C.borderHi}`, color: wallet ? C.green : "#C084FC", padding:"5px 10px", borderRadius:8, fontFamily:"monospace", fontSize:12, cursor:"pointer", whiteSpace:"nowrap" }}>
-            ◈ {wallet ? wallet : "Connect Wallet"}
-          </button>
-        </div>
-      </header>
+      {/* Root — fixed to viewport, no scroll */}
+      <div style={{ position:"fixed", inset:0, fontFamily:"'Syne','Segoe UI',sans-serif", background:C.bg, color:C.text, display:"flex", flexDirection:"column" }}>
 
-      {/* Body */}
-      <div style={{ flex:1, display:"flex", overflow:"hidden", position:"relative" }}>
-
-        {/* Desktop sidebar */}
-        {!isMobile && (
-          <div style={{ width:320, flexShrink:0, background:C.surface, borderRight:`1px solid ${C.border}`, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-            <div style={{ padding:12, borderBottom:`1px solid ${C.border}` }}>
-              <div style={{ position:"relative", marginBottom:10 }}>
-                <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:C.textDim, fontSize:15 }}>⌕</span>
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search businesses..." style={{ ...inputStyle, padding:"8px 12px 8px 32px" }}/>
-              </div>
-              <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
-                {CATEGORIES.map(c => (
-                  <div key={c} style={chipStyle(filter===c)} onClick={() => setFilter(c)}>
-                    {c==="all" ? "All" : `${CAT_EMOJI[c]} ${CAT_LABEL[c]}`}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div style={{ flex:1, overflowY:"auto", padding:8 }}>
-              {filtered.map(b => (
-                <div key={b.id} className="biz-card" style={cardStyle(selected?.id===b.id)} onClick={() => selectBiz(b)}>
-                  <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:4 }}>
-                    <div style={{ fontSize:14, fontWeight:700, color:C.text }}>{b.name}</div>
-                    <div style={{ fontSize:10, background:"rgba(153,69,255,0.12)", color:C.purple, padding:"1px 7px", borderRadius:100, fontFamily:"monospace", marginLeft:6, flexShrink:0 }}>{CAT_EMOJI[b.cat]} {CAT_LABEL[b.cat]}</div>
-                  </div>
-                  <div style={{ fontSize:11, color:C.textSub, marginBottom:7 }}>📍 {b.addr}</div>
-                  <div style={{ display:"flex", justifyContent:"space-between" }}>
-                    <span style={{ fontSize:11, color:C.green, fontFamily:"monospace" }}>◎ Accepts SOL</span>
-                    <span style={{ fontSize:11, color:C.gold, fontFamily:"monospace" }}>★ {b.rating}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+        {/* Header */}
+        <header style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 14px", height:52, background:C.surface, borderBottom:`1px solid ${C.border}`, flexShrink:0, zIndex:10, gap:8 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, fontWeight:800, fontSize:18, letterSpacing:-0.5 }}>
+            <div style={{ width:28, height:28, background:"linear-gradient(135deg,#9945FF,#14F195)", borderRadius:7, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>◎</div>
+            SOL <span style={{ color:C.green }}>Spots</span>
           </div>
-        )}
-
-        {/* Map */}
-        <div style={{ flex:1, position:"relative", overflow:"hidden", marginBottom: isMobile ? BOTTOM_BAR_H : 0 }}>
-          <LeafletMap
-            businesses={businesses}
-            selected={selected}
-            filter={filter}
-            onMarkerClick={b => selectBiz(b, isMobile)}
-            onPeterCooperClick={() => { setSelected(null); setPcPopup(p => !p); }}
-          />
-
-          {/* Mobile locations badge */}
-          {isMobile && (
-            <div style={{ position:"absolute", top:10, right:10, zIndex:400, display:"flex", alignItems:"center", gap:5, background:"rgba(7,9,14,0.88)", backdropFilter:"blur(10px)", border:"1px solid rgba(20,241,149,0.25)", padding:"5px 10px", borderRadius:8, fontSize:12, fontFamily:"monospace", color:C.green, whiteSpace:"nowrap" }}>
-              <div style={{ width:6, height:6, background:C.green, borderRadius:"50%", animation:"pulse 2s infinite" }}/>
-              {filtered.length} locations
-            </div>
-          )}
-
-          {/* Peter Cooper popup */}
-          {pcPopup && (
-            <div style={{ position:"absolute", top:12, left:"50%", transform:"translateX(-50%)", background:"rgba(14,20,32,0.97)", backdropFilter:"blur(16px)", border:"1px solid rgba(20,241,149,0.45)", borderRadius:14, padding:"11px 16px", minWidth:230, maxWidth:"80vw", zIndex:500, animation:"slideUp 0.2s ease" }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                <div>
-                  <div style={{ fontWeight:800, fontSize:14, color:C.text, marginBottom:2 }}>2 Peter Cooper Village</div>
-                  <div style={{ fontSize:11, color:C.green, fontFamily:"monospace", marginBottom:4 }}>📍 Peter Cooper Village, Manhattan</div>
-                  <div style={{ fontSize:11, color:C.textSub }}>HQ · New York, NY 10010</div>
-                </div>
-                <button onClick={() => setPcPopup(false)} style={{ background:"none", border:"none", color:C.textDim, cursor:"pointer", fontSize:20, marginLeft:12, lineHeight:1 }}>×</button>
+          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+            {!isMobile && (
+              <div style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(20,241,149,0.07)", border:"1px solid rgba(20,241,149,0.2)", padding:"5px 10px", borderRadius:8, fontSize:12, fontFamily:"monospace", color:C.green, whiteSpace:"nowrap" }}>
+                <div style={{ width:6, height:6, background:C.green, borderRadius:"50%", animation:"pulse 2s infinite" }}/>
+                {filtered.length} locations
               </div>
-              <div style={{ marginTop:9, paddingTop:9, borderTop:"1px solid rgba(20,241,149,0.2)" }}>
-                <span style={{ fontSize:11, color:C.green, fontFamily:"monospace" }}>◎ SOL Spots Headquarters</span>
-              </div>
-            </div>
-          )}
+            )}
+            <button onClick={() => { setWallet(w => w ? null : "7xKp…3mWq"); showToast(wallet ? "Disconnected" : "✓ Connected (demo)"); }}
+              style={{ display:"flex", alignItems:"center", gap:5, background: wallet ? "rgba(20,241,149,0.08)" : "rgba(153,69,255,0.1)", border:`1px solid ${wallet ? "rgba(20,241,149,0.35)" : C.borderHi}`, color: wallet ? C.green : "#C084FC", padding:"5px 10px", borderRadius:8, fontFamily:"monospace", fontSize:12, cursor:"pointer", whiteSpace:"nowrap" }}>
+              ◈ {wallet || "Connect Wallet"}
+            </button>
+          </div>
+        </header>
 
-          {/* Business popup */}
-          {selected && (
-            <div style={{ position:"absolute", top:12, left:"50%", transform:"translateX(-50%)", background:"rgba(14,20,32,0.97)", backdropFilter:"blur(16px)", border:`1px solid ${C.borderHi}`, borderRadius:14, padding:"11px 16px", minWidth:230, maxWidth:"80vw", zIndex:500, animation:"slideUp 0.2s ease" }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                <div>
-                  <div style={{ fontWeight:800, fontSize:14, color:C.text, marginBottom:2 }}>{selected.name}</div>
-                  <div style={{ fontSize:11, color:C.purple, fontFamily:"monospace", marginBottom:4 }}>{CAT_EMOJI[selected.cat]} {CAT_LABEL[selected.cat]}</div>
-                  <div style={{ fontSize:11, color:C.textSub }}>📍 {selected.addr}</div>
-                </div>
-                <button onClick={() => setSelected(null)} style={{ background:"none", border:"none", color:C.textDim, cursor:"pointer", fontSize:20, marginLeft:12, lineHeight:1 }}>×</button>
-              </div>
-              <div style={{ display:"flex", justifyContent:"space-between", marginTop:9, paddingTop:9, borderTop:"1px solid rgba(153,69,255,0.15)" }}>
-                <span style={{ fontSize:11, color:C.green, fontFamily:"monospace" }}>◎ Accepts Solana Pay</span>
-                <span style={{ fontSize:11, color:C.gold, fontFamily:"monospace" }}>★ {selected.rating}</span>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Body */}
+        <div style={{ flex:1, display:"flex", overflow:"hidden", position:"relative" }}>
 
-        {/* Mobile bottom drawer + pills */}
-        {isMobile && (
-          <div style={{ position:"fixed", left:0, right:0, bottom:0, zIndex:50, display:"flex", flexDirection:"column" }}>
-            {drawerOpen && (
-              <div style={{ background:"#07090E", borderTop:`1px solid ${C.border}`, maxHeight:"52vh", overflow:"hidden", display:"flex", flexDirection:"column" }}>
-                <div style={{ width:32, height:4, background:"rgba(255,255,255,0.12)", borderRadius:2, margin:"8px auto 0", flexShrink:0 }}/>
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"8px 14px", borderBottom:"1px solid rgba(153,69,255,0.12)", flexShrink:0 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, fontWeight:700, color:C.text }}>
-                    <span>{filter==="all" ? "📍" : CAT_EMOJI[filter]}</span>
-                    <span>{CAT_LABEL[filter]}</span>
-                    <span style={{ fontSize:10, color:C.green, background:"rgba(20,241,149,0.08)", border:"1px solid rgba(20,241,149,0.2)", padding:"1px 7px", borderRadius:100, fontFamily:"monospace" }}>{filtered.length}</span>
-                  </div>
-                  <button onClick={() => setDrawer(false)} style={{ background:"none", border:"none", color:C.textDim, fontSize:20, cursor:"pointer" }}>×</button>
+          {/* Desktop sidebar */}
+          {!isMobile && (
+            <div style={{ width:320, flexShrink:0, background:C.surface, borderRight:`1px solid ${C.border}`, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+              <div style={{ padding:12, borderBottom:`1px solid ${C.border}` }}>
+                <div style={{ position:"relative", marginBottom:10 }}>
+                  <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:C.textDim, fontSize:15 }}>⌕</span>
+                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search businesses..." style={{ ...inp, padding:"8px 12px 8px 32px" }}/>
                 </div>
-                <div style={{ padding:"8px 12px", borderBottom:"1px solid rgba(153,69,255,0.1)", flexShrink:0 }}>
-                  <div style={{ position:"relative" }}>
-                    <span style={{ position:"absolute", left:9, top:"50%", transform:"translateY(-50%)", color:C.textDim, fontSize:13 }}>⌕</span>
-                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ ...inputStyle, padding:"7px 12px 7px 28px", fontSize:12 }}/>
-                  </div>
-                </div>
-                <div style={{ overflowY:"auto", padding:8, flex:1 }}>
-                  {filtered.map(b => (
-                    <div key={b.id} className="drawer-card" style={{ display:"flex", alignItems:"center", gap:10, background: selected?.id===b.id ? "rgba(153,69,255,0.08)" : C.surface2, border:`1px solid ${selected?.id===b.id ? C.purple : "transparent"}`, borderRadius:12, padding:"10px 12px", marginBottom:6, cursor:"pointer", transition:"all 0.15s" }} onClick={() => selectBiz(b, true)}>
-                      <div style={{ width:38, height:38, flexShrink:0, background:"linear-gradient(135deg,rgba(153,69,255,0.15),rgba(20,241,149,0.08))", border:`1px solid ${C.border}`, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>{CAT_EMOJI[b.cat]}</div>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:13, fontWeight:700, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{b.name}</div>
-                        <div style={{ fontSize:10, color:C.textSub, marginTop:2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>📍 {b.addr}</div>
-                      </div>
-                      <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:3, flexShrink:0 }}>
-                        <span style={{ fontSize:11, color:C.gold, fontFamily:"monospace" }}>★ {b.rating}</span>
-                        <span style={{ fontSize:10, color:C.green, fontFamily:"monospace" }}>◎ SOL</span>
-                      </div>
+                <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+                  {CATEGORIES.map(c => (
+                    <div key={c} onClick={() => setFilter(c)} style={{ display:"flex", alignItems:"center", gap:5, background: filter===c ? "rgba(20,241,149,0.1)" : C.surface2, border:`1px solid ${filter===c ? C.green : C.border}`, color: filter===c ? C.green : C.textSub, padding:"4px 10px", borderRadius:100, fontSize:11, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap", transition:"all 0.15s" }}>
+                      {c==="all" ? "All" : `${CAT_EMOJI[c]} ${CAT_LABEL[c]}`}
                     </div>
                   ))}
                 </div>
               </div>
-            )}
-            <div style={{ height:BOTTOM_BAR_H, background:"#0E1420", borderTop:`1px solid ${C.border}`, padding:"0 12px", display:"flex", gap:6, overflowX:"auto", scrollbarWidth:"none", alignItems:"center", flexShrink:0 }}>
-              {CATEGORIES.map(c => (
-                <div key={c} style={{ display:"flex", alignItems:"center", gap:5, background: filter===c ? "rgba(20,241,149,0.1)" : C.surface2, border:`1px solid ${filter===c ? C.green : C.border}`, color: filter===c ? C.green : C.textSub, padding:"7px 13px", borderRadius:8, fontSize:13, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0, transition:"all 0.2s" }} onClick={() => setMobileFilter(c)}>
-                  {c==="all" ? "📍 All" : `${CAT_EMOJI[c]} ${CAT_LABEL[c]}`}
-                </div>
-              ))}
+              <div style={{ flex:1, overflowY:"auto", padding:8 }}>
+                {filtered.map(b => (
+                  <div key={b.id} className="biz-card" onClick={() => selectBiz(b)} style={{ background: selected?.id===b.id ? "rgba(153,69,255,0.08)" : C.surface2, border:`1px solid ${selected?.id===b.id ? C.purple : "transparent"}`, borderRadius:12, padding:12, marginBottom:7, cursor:"pointer", transition:"all 0.15s" }}>
+                    <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:4 }}>
+                      <div style={{ fontSize:14, fontWeight:700, color:C.text }}>{b.name}</div>
+                      <div style={{ fontSize:10, background:"rgba(153,69,255,0.12)", color:C.purple, padding:"1px 7px", borderRadius:100, fontFamily:"monospace", marginLeft:6, flexShrink:0 }}>{CAT_EMOJI[b.cat]} {CAT_LABEL[b.cat]}</div>
+                    </div>
+                    <div style={{ fontSize:11, color:C.textSub, marginBottom:7 }}>📍 {b.addr}</div>
+                    <div style={{ display:"flex", justifyContent:"space-between" }}>
+                      <span style={{ fontSize:11, color:C.green, fontFamily:"monospace" }}>◎ Accepts SOL</span>
+                      <span style={{ fontSize:11, color:C.gold, fontFamily:"monospace" }}>★ {b.rating}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
+          )}
+
+          {/* Map area */}
+          <div style={{ flex:1, position:"relative", overflow:"hidden", marginBottom: isMobile ? BOTTOM_BAR_H : 0 }}>
+            <LeafletMap businesses={businesses} selected={selected} filter={filter}
+              onMarkerClick={b => selectBiz(b, isMobile)}
+              onPeterCooperClick={() => { setSelected(null); setPcPopup(p => !p); }}
+            />
+
+            {/* Mobile locations badge */}
+            {isMobile && (
+              <div style={{ position:"absolute", top:10, right:10, zIndex:400, display:"flex", alignItems:"center", gap:5, background:"rgba(7,9,14,0.88)", backdropFilter:"blur(10px)", border:"1px solid rgba(20,241,149,0.25)", padding:"5px 10px", borderRadius:8, fontSize:12, fontFamily:"monospace", color:C.green, whiteSpace:"nowrap" }}>
+                <div style={{ width:6, height:6, background:C.green, borderRadius:"50%", animation:"pulse 2s infinite" }}/>
+                {filtered.length} locations
+              </div>
+            )}
+
+            {/* HQ popup */}
+            {pcPopup && (
+              <div style={{ position:"absolute", top:12, left:"50%", transform:"translateX(-50%)", background:"rgba(14,20,32,0.97)", backdropFilter:"blur(16px)", border:"1px solid rgba(20,241,149,0.45)", borderRadius:14, padding:"11px 16px", minWidth:230, maxWidth:"80vw", zIndex:500, animation:"slideUp 0.2s ease" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                  <div>
+                    <div style={{ fontWeight:800, fontSize:14, color:C.text, marginBottom:2 }}>2 Peter Cooper Village</div>
+                    <div style={{ fontSize:11, color:C.green, fontFamily:"monospace", marginBottom:4 }}>📍 Peter Cooper Village, Manhattan</div>
+                    <div style={{ fontSize:11, color:C.textSub }}>HQ · New York, NY 10010</div>
+                  </div>
+                  <button onClick={() => setPcPopup(false)} style={{ background:"none", border:"none", color:C.textDim, cursor:"pointer", fontSize:20, marginLeft:12, lineHeight:1 }}>×</button>
+                </div>
+                <div style={{ marginTop:9, paddingTop:9, borderTop:"1px solid rgba(20,241,149,0.2)" }}>
+                  <span style={{ fontSize:11, color:C.green, fontFamily:"monospace" }}>◎ SOL Spots Headquarters</span>
+                </div>
+              </div>
+            )}
+
+            {/* Business popup */}
+            {selected && (
+              <div style={{ position:"absolute", top:12, left:"50%", transform:"translateX(-50%)", background:"rgba(14,20,32,0.97)", backdropFilter:"blur(16px)", border:`1px solid ${C.borderHi}`, borderRadius:14, padding:"11px 16px", minWidth:230, maxWidth:"80vw", zIndex:500, animation:"slideUp 0.2s ease" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                  <div>
+                    <div style={{ fontWeight:800, fontSize:14, color:C.text, marginBottom:2 }}>{selected.name}</div>
+                    <div style={{ fontSize:11, color:C.purple, fontFamily:"monospace", marginBottom:4 }}>{CAT_EMOJI[selected.cat]} {CAT_LABEL[selected.cat]}</div>
+                    <div style={{ fontSize:11, color:C.textSub }}>📍 {selected.addr}</div>
+                  </div>
+                  <button onClick={() => setSelected(null)} style={{ background:"none", border:"none", color:C.textDim, cursor:"pointer", fontSize:20, marginLeft:12, lineHeight:1 }}>×</button>
+                </div>
+                <div style={{ display:"flex", justifyContent:"space-between", marginTop:9, paddingTop:9, borderTop:"1px solid rgba(153,69,255,0.15)" }}>
+                  <span style={{ fontSize:11, color:C.green, fontFamily:"monospace" }}>◎ Accepts Solana Pay</span>
+                  <span style={{ fontSize:11, color:C.gold, fontFamily:"monospace" }}>★ {selected.rating}</span>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Mobile bottom bar */}
+          {isMobile && (
+            <div style={{ position:"fixed", left:0, right:0, bottom:0, zIndex:50, display:"flex", flexDirection:"column" }}>
+              {drawerOpen && (
+                <div style={{ background:"#07090E", borderTop:`1px solid ${C.border}`, maxHeight:"52vh", overflow:"hidden", display:"flex", flexDirection:"column" }}>
+                  <div style={{ width:32, height:4, background:"rgba(255,255,255,0.12)", borderRadius:2, margin:"8px auto 0", flexShrink:0 }}/>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"8px 14px", borderBottom:"1px solid rgba(153,69,255,0.12)", flexShrink:0 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, fontWeight:700, color:C.text }}>
+                      <span>{filter==="all" ? "📍" : CAT_EMOJI[filter]}</span>
+                      <span>{CAT_LABEL[filter]}</span>
+                      <span style={{ fontSize:10, color:C.green, background:"rgba(20,241,149,0.08)", border:"1px solid rgba(20,241,149,0.2)", padding:"1px 7px", borderRadius:100, fontFamily:"monospace" }}>{filtered.length}</span>
+                    </div>
+                    <button onClick={() => setDrawer(false)} style={{ background:"none", border:"none", color:C.textDim, fontSize:20, cursor:"pointer" }}>×</button>
+                  </div>
+                  <div style={{ padding:"8px 12px", borderBottom:"1px solid rgba(153,69,255,0.1)", flexShrink:0 }}>
+                    <div style={{ position:"relative" }}>
+                      <span style={{ position:"absolute", left:9, top:"50%", transform:"translateY(-50%)", color:C.textDim, fontSize:13 }}>⌕</span>
+                      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ ...inp, padding:"7px 12px 7px 28px", fontSize:12 }}/>
+                    </div>
+                  </div>
+                  <div style={{ overflowY:"auto", padding:8, flex:1 }}>
+                    {filtered.map(b => (
+                      <div key={b.id} className="drawer-card" onClick={() => selectBiz(b, true)} style={{ display:"flex", alignItems:"center", gap:10, background: selected?.id===b.id ? "rgba(153,69,255,0.08)" : C.surface2, border:`1px solid ${selected?.id===b.id ? C.purple : "transparent"}`, borderRadius:12, padding:"10px 12px", marginBottom:6, cursor:"pointer", transition:"all 0.15s" }}>
+                        <div style={{ width:38, height:38, flexShrink:0, background:"linear-gradient(135deg,rgba(153,69,255,0.15),rgba(20,241,149,0.08))", border:`1px solid ${C.border}`, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>{CAT_EMOJI[b.cat]}</div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:13, fontWeight:700, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{b.name}</div>
+                          <div style={{ fontSize:10, color:C.textSub, marginTop:2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>📍 {b.addr}</div>
+                        </div>
+                        <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:3, flexShrink:0 }}>
+                          <span style={{ fontSize:11, color:C.gold, fontFamily:"monospace" }}>★ {b.rating}</span>
+                          <span style={{ fontSize:10, color:C.green, fontFamily:"monospace" }}>◎ SOL</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div style={{ height:BOTTOM_BAR_H, background:"#0E1420", borderTop:`1px solid ${C.border}`, padding:"0 12px", display:"flex", gap:6, overflowX:"auto", scrollbarWidth:"none", alignItems:"center", flexShrink:0 }}>
+                {CATEGORIES.map(c => (
+                  <div key={c} onClick={() => setMobileFilter(c)} style={{ display:"flex", alignItems:"center", gap:5, background: filter===c ? "rgba(20,241,149,0.1)" : C.surface2, border:`1px solid ${filter===c ? C.green : C.border}`, color: filter===c ? C.green : C.textSub, padding:"7px 13px", borderRadius:8, fontSize:13, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0, transition:"all 0.2s" }}>
+                    {c==="all" ? "📍 All" : `${CAT_EMOJI[c]} ${CAT_LABEL[c]}`}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* FAB — fixed at root level, always on top */}
-      <button
-        onClick={() => setModal(true)}
-        style={{ position:"fixed", bottom: isMobile ? BOTTOM_BAR_H + 16 : 20, right:16, zIndex:150, width:52, height:52, background:"linear-gradient(135deg,#9945FF,#14F195)", border:"none", borderRadius:"50%", fontSize:26, color:"#fff", cursor:"pointer", boxShadow:"0 6px 24px rgba(153,69,255,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}
-      >+</button>
+      {/* FAB — outside root, truly on top of everything */}
+      <button onClick={() => setModal(true)} style={{ position:"fixed", bottom: isMobile ? BOTTOM_BAR_H + 16 : 20, right:16, zIndex:9998, width:52, height:52, background:"linear-gradient(135deg,#9945FF,#14F195)", border:"none", borderRadius:"50%", fontSize:26, color:"#fff", cursor:"pointer", boxShadow:"0 6px 24px rgba(153,69,255,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
 
-      {/* Add Business Modal */}
+      {/* Modal — highest z-index of all */}
       {modalOpen && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", backdropFilter:"blur(10px)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }} onClick={e => e.target===e.currentTarget && setModal(false)}>
+        <div onClick={e => e.target===e.currentTarget && setModal(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.9)", backdropFilter:"blur(10px)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:20, padding:24, width:"100%", maxWidth:400, maxHeight:"85vh", overflowY:"auto" }}>
             <div style={{ fontSize:20, fontWeight:800, color:C.text, marginBottom:4 }}>Add a Business</div>
             <div style={{ fontSize:13, color:C.textSub, marginBottom:18 }}>List a business that accepts Solana payments</div>
-            {[["name","Business Name","e.g. Blue Bottle Coffee"],["addr","Address","123 Main St, NYC"],["wallet","Solana Pay Address","Your SOL wallet address"]].map(([k,lbl,ph]) => (
+            {[["name","Business Name","e.g. Blue Bottle Coffee"],["addr","Address","123 Main St, NYC"],["wallet","Solana Pay Address","Your SOL wallet address"]].map(([k,l,p]) => (
               <div key={k} style={{ marginBottom:14 }}>
-                <label style={labelStyle}>{lbl}</label>
-                <input style={inputStyle} placeholder={ph} value={form[k]} onChange={e => setForm(f => ({...f,[k]:e.target.value}))}/>
+                <label style={lbl}>{l}</label>
+                <input style={inp} placeholder={p} value={form[k]} onChange={e => setForm(f => ({...f,[k]:e.target.value}))}/>
               </div>
             ))}
             <div style={{ marginBottom:14 }}>
-              <label style={labelStyle}>Category</label>
-              <select style={inputStyle} value={form.cat} onChange={e => setForm(f => ({...f,cat:e.target.value}))}>
+              <label style={lbl}>Category</label>
+              <select style={inp} value={form.cat} onChange={e => setForm(f => ({...f,cat:e.target.value}))}>
                 <option value="atm">🏧 ATM / OTC</option>
                 <option value="cafe">☕ Café</option>
                 <option value="restaurant">🍽 Restaurant</option>
@@ -507,9 +471,9 @@ export default function SolSpots() {
       )}
 
       {/* Toast */}
-      <div style={{ position:"fixed", bottom:80, right:16, background:C.surface, border:"1px solid rgba(20,241,149,0.3)", color:C.green, padding:"10px 18px", borderRadius:12, fontSize:13, fontWeight:600, fontFamily:"monospace", zIndex:300, pointerEvents:"none", transform: toast.vis ? "translateY(0)" : "translateY(20px)", opacity: toast.vis ? 1 : 0, transition:"all 0.3s" }}>
+      <div style={{ position:"fixed", bottom:BOTTOM_BAR_H + 8, right:16, background:C.surface, border:"1px solid rgba(20,241,149,0.3)", color:"#14F195", padding:"10px 18px", borderRadius:12, fontSize:13, fontWeight:600, fontFamily:"monospace", zIndex:9997, pointerEvents:"none", transform: toast.vis ? "translateY(0)" : "translateY(20px)", opacity: toast.vis ? 1 : 0, transition:"all 0.3s" }}>
         {toast.msg}
       </div>
-    </div>
+    </>
   );
 }
