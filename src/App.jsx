@@ -410,7 +410,7 @@ export default function SolSpots() {
             </div>
           )}
 
-          <button onClick={() => setModal(true)} style={{ position:"absolute", bottom: isMobile ? BOTTOM_BAR_H + 12 : 20, right:16, zIndex:5, width:48, height:48, background:"linear-gradient(135deg,#9945FF,#14F195)", border:"none", borderRadius:"50%", fontSize:24, color:"#fff", cursor:"pointer", boxShadow:"0 6px 24px rgba(153,69,255,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
+          <button onClick={() => setModal(true)} style={{ position:"absolute", bottom: isMobile ? BOTTOM_BAR_H + 12 : 20, right:16, zIndex:450, width:48, height:48, background:"linear-gradient(135deg,#9945FF,#14F195)", border:"none", borderRadius:"50%", fontSize:24, color:"#fff", cursor:"pointer", boxShadow:"0 6px 24px rgba(153,69,255,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
         </div>
 
         {isMobile && (
