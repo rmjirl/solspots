@@ -49,9 +49,9 @@ function LeafletMap({ businesses, selected, onMarkerClick, filter }) {
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png", {
       maxZoom: 19, subdomains: "abcd", opacity: 0.85
     }).addTo(map);
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png", {
-      maxZoom: 19, subdomains: "abcd", opacity: 1
-    }).addTo(map);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png", {
+  maxZoom: 19, subdomains: "abcd"
+}).addTo(map);
     leafletMap.current = map;
     setTimeout(() => map.invalidateSize(), 100);
     setTimeout(() => map.invalidateSize(), 600);
