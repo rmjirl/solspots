@@ -173,6 +173,8 @@ export default function SolSpots() {
   const inputStyle = { width:"100%", background:C.surface2, border:`1px solid ${C.border}`, color:C.text, padding:"9px 12px", borderRadius:10, fontFamily:"inherit", fontSize:13, outline:"none" };
   const labelStyle = { display:"block", fontSize:11, fontWeight:600, color:C.textSub, textTransform:"uppercase", letterSpacing:0.5, marginBottom:5, fontFamily:"monospace" };
 
+  const BOTTOM_BAR_H = 68;
+
   return (
     <div style={{ fontFamily:"'Syne','Segoe UI',sans-serif", background:C.bg, color:C.text, height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden" }}>
       <style>{`
@@ -188,26 +190,25 @@ export default function SolSpots() {
         .leaflet-container{background:#0D1117!important;}
       `}</style>
 
-      {/* Header */}
-      <header style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 14px", height:56, background:C.surface, borderBottom:`1px solid ${C.border}`, flexShrink:0, zIndex:10, gap:8 }}>
+      <header style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 14px", height:52, background:C.surface, borderBottom:`1px solid ${C.border}`, flexShrink:0, zIndex:10, gap:8 }}>
         <div style={{ display:"flex", alignItems:"center", gap:8, fontWeight:800, fontSize:18, letterSpacing:-0.5, flexShrink:0 }}>
           <div style={{ width:28, height:28, background:"linear-gradient(135deg,#9945FF,#14F195)", borderRadius:7, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>◎</div>
           SOL <span style={{ color:C.green }}>Spots</span>
         </div>
-        <div style={{ display:"flex", gap:6, alignItems:"center", flexShrink:0 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(20,241,149,0.07)", border:"1px solid rgba(20,241,149,0.2)", padding:"5px 10px", borderRadius:8, fontSize:12, fontFamily:"monospace", color:C.green, whiteSpace:"nowrap" }}>
-            <div style={{ width:6, height:6, background:C.green, borderRadius:"50%", animation:"pulse 2s infinite", flexShrink:0 }}/>
-            {filtered.length} locations
-          </div>
+        <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+          {!isMobile && (
+            <div style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(20,241,149,0.07)", border:"1px solid rgba(20,241,149,0.2)", padding:"5px 10px", borderRadius:8, fontSize:12, fontFamily:"monospace", color:C.green, whiteSpace:"nowrap" }}>
+              <div style={{ width:6, height:6, background:C.green, borderRadius:"50%", animation:"pulse 2s infinite" }}/>
+              {filtered.length} locations
+            </div>
+          )}
           <button onClick={() => { setWallet(w => w ? null : "7xKp…3mWq"); showToast(wallet ? "Disconnected" : "✓ Connected (demo)"); }} style={{ display:"flex", alignItems:"center", gap:5, background: wallet ? "rgba(20,241,149,0.08)" : "rgba(153,69,255,0.1)", border:`1px solid ${wallet ? "rgba(20,241,149,0.35)" : C.borderHi}`, color: wallet ? C.green : "#C084FC", padding:"5px 10px", borderRadius:8, fontFamily:"monospace", fontSize:12, cursor:"pointer", whiteSpace:"nowrap" }}>
-            ◈ {wallet ? wallet : "Connect Solflare"}
+            ◈ {wallet ? wallet : "Connect Wallet"}
           </button>
         </div>
       </header>
 
-      {/* Body */}
       <div style={{ flex:1, display:"flex", overflow:"hidden", position:"relative" }}>
-
         {!isMobile && (
           <div style={{ width:320, flexShrink:0, background:C.surface, borderRight:`1px solid ${C.border}`, display:"flex", flexDirection:"column", overflow:"hidden" }}>
             <div style={{ padding:12, borderBottom:`1px solid ${C.border}` }}>
@@ -244,8 +245,15 @@ export default function SolSpots() {
         <div style={{ flex:1, position:"relative", overflow:"hidden" }}>
           <LeafletMap businesses={businesses} selected={selected} filter={filter} onMarkerClick={b => selectBiz(b, isMobile)} />
 
+          {isMobile && (
+            <div style={{ position:"absolute", top:10, right:10, zIndex:400, display:"flex", alignItems:"center", gap:5, background:"rgba(7,9,14,0.88)", backdropFilter:"blur(10px)", border:"1px solid rgba(20,241,149,0.25)", padding:"5px 10px", borderRadius:8, fontSize:12, fontFamily:"monospace", color:C.green, whiteSpace:"nowrap" }}>
+              <div style={{ width:6, height:6, background:C.green, borderRadius:"50%", animation:"pulse 2s infinite" }}/>
+              {filtered.length} locations
+            </div>
+          )}
+
           {selected && (
-            <div style={{ position:"absolute", top:12, left:"50%", transform:"translateX(-50%)", background:"rgba(14,20,32,0.97)", backdropFilter:"blur(16px)", border:`1px solid ${C.borderHi}`, borderRadius:14, padding:"11px 16px", minWidth:230, maxWidth:"85vw", zIndex:500, animation:"slideUp 0.2s ease" }}>
+            <div style={{ position:"absolute", top:12, left:"50%", transform:"translateX(-50%)", background:"rgba(14,20,32,0.97)", backdropFilter:"blur(16px)", border:`1px solid ${C.borderHi}`, borderRadius:14, padding:"11px 16px", minWidth:230, maxWidth:"80vw", zIndex:500, animation:"slideUp 0.2s ease" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                 <div>
                   <div style={{ fontWeight:800, fontSize:14, color:C.text, marginBottom:2 }}>{selected.name}</div>
@@ -261,46 +269,47 @@ export default function SolSpots() {
             </div>
           )}
 
-          <button onClick={() => setModal(true)} style={{ position:"absolute", bottom: isMobile ? 96 : 20, right:16, zIndex:5, width:48, height:48, background:"linear-gradient(135deg,#9945FF,#14F195)", border:"none", borderRadius:"50%", fontSize:24, color:"#fff", cursor:"pointer", boxShadow:"0 6px 24px rgba(153,69,255,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
+          <button onClick={() => setModal(true)} style={{ position:"absolute", bottom: isMobile ? BOTTOM_BAR_H + 12 : 20, right:16, zIndex:5, width:48, height:48, background:"linear-gradient(135deg,#9945FF,#14F195)", border:"none", borderRadius:"50%", fontSize:24, color:"#fff", cursor:"pointer", boxShadow:"0 6px 24px rgba(153,69,255,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
         </div>
 
         {isMobile && (
-          <div style={{ position:"absolute", left:0, right:0, bottom:0, zIndex:20, display:"flex", flexDirection:"column", pointerEvents:"none" }}>
-            <div style={{ background:"rgba(7,9,14,0.97)", backdropFilter:"blur(20px)", borderTop:`1px solid ${C.border}`, maxHeight: drawerOpen ? "52vh" : 0, overflow:"hidden", transition:"max-height 0.35s cubic-bezier(0.4,0,0.2,1)", pointerEvents:"all", display:"flex", flexDirection:"column" }}>
-              <div style={{ width:32, height:4, background:"rgba(255,255,255,0.12)", borderRadius:2, margin:"8px auto 0" }}/>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"8px 14px", borderBottom:"1px solid rgba(153,69,255,0.12)", flexShrink:0 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, fontWeight:700, color:C.text }}>
-                  <span>{filter==="all" ? "📍" : CAT_EMOJI[filter]}</span>
-                  <span>{CAT_LABEL[filter]}</span>
-                  <span style={{ fontSize:10, color:C.green, background:"rgba(20,241,149,0.08)", border:"1px solid rgba(20,241,149,0.2)", padding:"1px 7px", borderRadius:100, fontFamily:"monospace" }}>{filtered.length}</span>
-                </div>
-                <button onClick={() => setDrawer(false)} style={{ background:"none", border:"none", color:C.textDim, fontSize:20, cursor:"pointer" }}>×</button>
-              </div>
-              <div style={{ padding:"8px 12px", borderBottom:"1px solid rgba(153,69,255,0.1)", flexShrink:0 }}>
-                <div style={{ position:"relative" }}>
-                  <span style={{ position:"absolute", left:9, top:"50%", transform:"translateY(-50%)", color:C.textDim, fontSize:13 }}>⌕</span>
-                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ ...inputStyle, padding:"7px 12px 7px 28px", fontSize:12 }}/>
-                </div>
-              </div>
-              <div style={{ overflowY:"auto", padding:8, flex:1 }}>
-                {filtered.map(b => (
-                  <div key={b.id} className="drawer-card" style={{ display:"flex", alignItems:"center", gap:10, background: selected?.id===b.id ? "rgba(153,69,255,0.08)" : C.surface2, border:`1px solid ${selected?.id===b.id ? C.purple : "transparent"}`, borderRadius:12, padding:"10px 12px", marginBottom:6, cursor:"pointer", transition:"all 0.15s" }} onClick={() => selectBiz(b, true)}>
-                    <div style={{ width:38, height:38, flexShrink:0, background:"linear-gradient(135deg,rgba(153,69,255,0.15),rgba(20,241,149,0.08))", border:`1px solid ${C.border}`, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>{CAT_EMOJI[b.cat]}</div>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{b.name}</div>
-                      <div style={{ fontSize:10, color:C.textSub, marginTop:2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>📍 {b.addr}</div>
-                    </div>
-                    <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:3, flexShrink:0 }}>
-                      <span style={{ fontSize:11, color:C.gold, fontFamily:"monospace" }}>★ {b.rating}</span>
-                      <span style={{ fontSize:10, color:C.green, fontFamily:"monospace" }}>◎ SOL</span>
-                    </div>
+          <div style={{ position:"absolute", left:0, right:0, bottom:0, zIndex:20, display:"flex", flexDirection:"column" }}>
+            {drawerOpen && (
+              <div style={{ background:"#07090E", borderTop:`1px solid ${C.border}`, maxHeight:"52vh", overflow:"hidden", display:"flex", flexDirection:"column" }}>
+                <div style={{ width:32, height:4, background:"rgba(255,255,255,0.12)", borderRadius:2, margin:"8px auto 0", flexShrink:0 }}/>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"8px 14px", borderBottom:"1px solid rgba(153,69,255,0.12)", flexShrink:0 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, fontWeight:700, color:C.text }}>
+                    <span>{filter==="all" ? "📍" : CAT_EMOJI[filter]}</span>
+                    <span>{CAT_LABEL[filter]}</span>
+                    <span style={{ fontSize:10, color:C.green, background:"rgba(20,241,149,0.08)", border:"1px solid rgba(20,241,149,0.2)", padding:"1px 7px", borderRadius:100, fontFamily:"monospace" }}>{filtered.length}</span>
                   </div>
-                ))}
+                  <button onClick={() => setDrawer(false)} style={{ background:"none", border:"none", color:C.textDim, fontSize:20, cursor:"pointer" }}>×</button>
+                </div>
+                <div style={{ padding:"8px 12px", borderBottom:"1px solid rgba(153,69,255,0.1)", flexShrink:0 }}>
+                  <div style={{ position:"relative" }}>
+                    <span style={{ position:"absolute", left:9, top:"50%", transform:"translateY(-50%)", color:C.textDim, fontSize:13 }}>⌕</span>
+                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ ...inputStyle, padding:"7px 12px 7px 28px", fontSize:12 }}/>
+                  </div>
+                </div>
+                <div style={{ overflowY:"auto", padding:8, flex:1 }}>
+                  {filtered.map(b => (
+                    <div key={b.id} className="drawer-card" style={{ display:"flex", alignItems:"center", gap:10, background: selected?.id===b.id ? "rgba(153,69,255,0.08)" : C.surface2, border:`1px solid ${selected?.id===b.id ? C.purple : "transparent"}`, borderRadius:12, padding:"10px 12px", marginBottom:6, cursor:"pointer", transition:"all 0.15s" }} onClick={() => selectBiz(b, true)}>
+                      <div style={{ width:38, height:38, flexShrink:0, background:"linear-gradient(135deg,rgba(153,69,255,0.15),rgba(20,241,149,0.08))", border:`1px solid ${C.border}`, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>{CAT_EMOJI[b.cat]}</div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:13, fontWeight:700, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{b.name}</div>
+                        <div style={{ fontSize:10, color:C.textSub, marginTop:2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>📍 {b.addr}</div>
+                      </div>
+                      <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:3, flexShrink:0 }}>
+                        <span style={{ fontSize:11, color:C.gold, fontFamily:"monospace" }}>★ {b.rating}</span>
+                        <span style={{ fontSize:10, color:C.green, fontFamily:"monospace" }}>◎ SOL</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Category pills - FIXED: square-ish corners, proper spacing */}
-            <div style={{ pointerEvents:"all", background:"rgba(7,9,14,0.97)", backdropFilter:"blur(16px)", borderTop:`1px solid ${C.border}`, padding:"8px 12px 20px", display:"flex", gap:6, overflowX:"auto", scrollbarWidth:"none", alignItems:"center" }}>
+            <div style={{ height:BOTTOM_BAR_H, background:"#0E1420", borderTop:`1px solid ${C.border}`, padding:"0 12px", display:"flex", gap:6, overflowX:"auto", scrollbarWidth:"none", alignItems:"center", flexShrink:0 }}>
               {CATEGORIES.map(c => (
                 <div key={c} style={{ display:"flex", alignItems:"center", gap:5, background: filter===c ? "rgba(20,241,149,0.1)" : C.surface2, border:`1px solid ${filter===c ? C.green : C.border}`, color: filter===c ? C.green : C.textSub, padding:"7px 13px", borderRadius:8, fontSize:13, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0, transition:"all 0.2s" }} onClick={() => setMobileFilter(c)}>
                   {c==="all" ? "📍 All" : `${CAT_EMOJI[c]} ${c[0].toUpperCase()+c.slice(1)}`}
@@ -340,7 +349,7 @@ export default function SolSpots() {
         </div>
       )}
 
-      <div style={{ position:"fixed", bottom:100, right:16, background:C.surface, border:"1px solid rgba(20,241,149,0.3)", color:C.green, padding:"10px 18px", borderRadius:12, fontSize:13, fontWeight:600, fontFamily:"monospace", zIndex:200, pointerEvents:"none", transform: toast.vis ? "translateY(0)" : "translateY(20px)", opacity: toast.vis ? 1 : 0, transition:"all 0.3s" }}>
+      <div style={{ position:"fixed", bottom:80, right:16, background:C.surface, border:"1px solid rgba(20,241,149,0.3)", color:C.green, padding:"10px 18px", borderRadius:12, fontSize:13, fontWeight:600, fontFamily:"monospace", zIndex:200, pointerEvents:"none", transform: toast.vis ? "translateY(0)" : "translateY(20px)", opacity: toast.vis ? 1 : 0, transition:"all 0.3s" }}>
         {toast.msg}
       </div>
     </div>
