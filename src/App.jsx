@@ -193,7 +193,7 @@ function SearchBox({ value, onChange, onKeyDown, onFocus, onBlur, suggestions, s
           : null
       }
       {showSugg && suggestions.length > 0 && (
-        <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, right:0, background:C.surface, border:`1px solid ${C.borderHi}`, borderRadius:12, overflow:"hidden", zIndex:9000, boxShadow:"0 8px 32px rgba(0,0,0,0.6)" }}>
+        <div style={{ position:"fixed", top:58, left:0, right:0, margin:"0 8px", background:C.surface, border:`1px solid ${C.borderHi}`, borderRadius:12, overflow:"hidden", zIndex:99999, boxShadow:"0 8px 32px rgba(0,0,0,0.8)" }}>
           {suggestions.map((s, i) => (
             <div
               key={i}
