@@ -158,15 +158,49 @@ export default function SolSpots() {
 
   // ── Geolocation: IP-based first (no permission), then upgrade to GPS ──
   useEffect(() => {
-    // Step 1: IP-based city-level location immediately, no permission prompt
-    fetch("https://ipapi.co/json/")
-      .then(r => r.json())
-      .then(d => {
-        if (d.latitude && d.longitude) {
-          setUserLocation({ lat: d.latitude, lng: d.longitude, approximate: true });
-        }
-      })
-      .catch(() => {});
+    // Step 1: Try multiple IP lookup services in order — Brave blocks ipapi.co
+    const tryIpLookup = async () => {
+      const services = [
+        // cloudflare trace — plain text, never blocked
+        async () => {
+          const r = await fetch("https://www.cloudflare.com/cdn-cgi/trace");
+          const text = await r.text();
+          // Cloudflare trace doesn't give lat/lng, skip to next
+          throw new Error("no coords");
+        },
+        // ip-api — free, no tracking reputation, works in Brave
+        async () => {
+          const r = await fetch("https://ip-api.com/json/?fields=lat,lon,status");
+          const d = await r.json();
+          if (d.status === "success" && d.lat) return { lat: d.lat, lng: d.lon };
+          throw new Error("no coords");
+        },
+        // freeipapi — another fallback
+        async () => {
+          const r = await fetch("https://freeipapi.com/api/json");
+          const d = await r.json();
+          if (d.latitude && d.longitude) return { lat: d.latitude, lng: d.longitude };
+          throw new Error("no coords");
+        },
+        // ipapi.co — last resort (blocked by Brave)
+        async () => {
+          const r = await fetch("https://ipapi.co/json/");
+          const d = await r.json();
+          if (d.latitude && d.longitude) return { lat: d.latitude, lng: d.longitude };
+          throw new Error("no coords");
+        },
+      ];
+      for (const svc of services) {
+        try {
+          const loc = await svc();
+          if (loc) {
+            setUserLocation({ ...loc, approximate: true });
+            return;
+          }
+        } catch (_) {}
+      }
+    };
+    tryIpLookup();
 
     // Step 2: Request precise GPS — upgrades the pin when granted
     if (!navigator.geolocation) return;
