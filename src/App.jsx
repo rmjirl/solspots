@@ -183,20 +183,78 @@ export default function SolSpots() {
   const [userLocation, setUserLocation] = useState(null);
   const [gpsError,    setGpsError]     = useState(false);
   const [addrLoading, setAddrLoading]  = useState(false);
+  const [suggestions, setSuggestions]  = useState([]); // { type: "biz"|"place", label, sub, lat, lng, biz? }
+  const [showSugg,    setShowSugg]     = useState(false);
+  const searchDebounce = useRef(null);
   const mapRef = useRef(null);
 
-  // Unified search: filters businesses instantly, geocodes on Enter if no local match
+  // Fetch location suggestions from Photon (OSM autocomplete, no key needed)
+  const fetchLocationSuggestions = useCallback(async (q) => {
+    if (!q || q.length < 2) return [];
+    try {
+      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=4&lang=en`;
+      const res  = await fetch(url);
+      const data = await res.json();
+      return (data.features || []).map(f => {
+        const p = f.properties;
+        const parts = [p.name, p.city || p.county, p.country].filter(Boolean);
+        return {
+          type: "place",
+          label: parts[0] || q,
+          sub:   parts.slice(1).join(", "),
+          lat:   f.geometry.coordinates[1],
+          lng:   f.geometry.coordinates[0],
+        };
+      });
+    } catch { return []; }
+  }, []);
+
+  // Build suggestions: top 3 biz matches + up to 4 location suggestions
+  const updateSuggestions = useCallback((q) => {
+    if (!q || q.trim().length < 2) { setSuggestions([]); setShowSugg(false); return; }
+    const ql = q.toLowerCase();
+    const bizHits = businesses
+      .filter(b => b.name.toLowerCase().includes(ql) || b.addr.toLowerCase().includes(ql))
+      .slice(0, 3)
+      .map(b => ({ type: "biz", label: b.name, sub: b.addr, biz: b }));
+    // Show biz hits immediately
+    setSuggestions(bizHits);
+    if (bizHits.length > 0) setShowSugg(true);
+    // Debounce location fetch
+    clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(async () => {
+      const places = await fetchLocationSuggestions(q);
+      setSuggestions(prev => {
+        const bizPart = prev.filter(s => s.type === "biz");
+        const combined = [...bizPart, ...places];
+        if (combined.length > 0) setShowSugg(true);
+        return combined;
+      });
+    }, 320);
+  }, [businesses, fetchLocationSuggestions]);
+
+  // Select a suggestion
+  const pickSuggestion = useCallback((s) => {
+    setShowSugg(false);
+    if (s.type === "biz") {
+      setSearch(s.label);
+      selectBiz(s.biz, isMobile);
+      mapRef.current?.clearSearchPin();
+    } else {
+      setSearch(s.label);
+      setSuggestions([]);
+      mapRef.current?.setSearchPin(s.lat, s.lng, `${s.label}${s.sub ? ", " + s.sub : ""}`);
+    }
+  }, [isMobile]);
+
+  // On Enter: pick first suggestion or geocode
   const handleSearchKeyDown = useCallback(async (e) => {
+    if (e.key === "Escape") { setShowSugg(false); return; }
     if (e.key !== "Enter") return;
     const q = search.trim();
     if (!q) return;
-    // If there are local business matches, just let the filter do its thing
-    const localMatches = businesses.filter(b =>
-      b.name.toLowerCase().includes(q.toLowerCase()) ||
-      b.addr.toLowerCase().includes(q.toLowerCase())
-    );
-    if (localMatches.length > 0) return;
-    // No local match → geocode it
+    if (suggestions.length > 0) { pickSuggestion(suggestions[0]); return; }
+    // Fallback: direct geocode
     setAddrLoading(true);
     try {
       const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`;
@@ -208,7 +266,7 @@ export default function SolSpots() {
       mapRef.current?.setSearchPin(parseFloat(lat), parseFloat(lon), shortLabel);
     } catch { showToast("⚠ Search failed. Check your connection."); }
     finally { setAddrLoading(false); }
-  }, [search, businesses]);
+  }, [search, suggestions, pickSuggestion]);
 
   useEffect(() => {
     const fn = () => setMobile(window.innerWidth < 768);
@@ -361,6 +419,48 @@ export default function SolSpots() {
   const inp = { width:"100%", background:C.surface2, border:`1px solid ${C.border}`, color:C.text, padding:"9px 12px", borderRadius:10, fontFamily:"inherit", fontSize:13, outline:"none" };
   const lbl = { display:"block", fontSize:11, fontWeight:600, color:C.textSub, textTransform:"uppercase", letterSpacing:0.5, marginBottom:5, fontFamily:"monospace" };
 
+  // ─── Shared SearchBox ─────────────────────────────────────────────────────────
+  const SearchBox = ({ pill = false }) => (
+    <div style={{ position:"relative", flex:1 }}>
+      <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:C.textDim, fontSize:15, pointerEvents:"none", zIndex:1 }}>⌕</span>
+      <input
+        value={search}
+        onChange={e => { setSearch(e.target.value); updateSuggestions(e.target.value); mapRef.current?.clearSearchPin(); }}
+        onKeyDown={handleSearchKeyDown}
+        onFocus={() => suggestions.length > 0 && setShowSugg(true)}
+        onBlur={() => setTimeout(() => setShowSugg(false), 150)}
+        placeholder="Search businesses or locations"
+        style={{ ...inp, padding: pill ? "7px 34px 7px 30px" : "8px 34px 8px 30px", borderRadius: pill ? 100 : 10, fontSize: pill ? 12 : 13 }}
+      />
+      {addrLoading
+        ? <div style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", width:13, height:13, border:`2px solid ${C.border}`, borderTop:`2px solid ${C.green}`, borderRadius:"50%", animation:"spin 0.7s linear infinite" }}/>
+        : search
+          ? <span onMouseDown={e => { e.preventDefault(); setSearch(""); setSuggestions([]); setShowSugg(false); mapRef.current?.clearSearchPin(); }} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", fontSize:13, cursor:"pointer", color:C.textDim }}>×</span>
+          : null
+      }
+      {/* Suggestions dropdown */}
+      {showSugg && suggestions.length > 0 && (
+        <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, right:0, background:C.surface, border:`1px solid ${C.borderHi}`, borderRadius:12, overflow:"hidden", zIndex:9000, boxShadow:"0 8px 32px rgba(0,0,0,0.6)" }}>
+          {suggestions.map((s, i) => (
+            <div
+              key={i}
+              onMouseDown={e => { e.preventDefault(); pickSuggestion(s); }}
+              style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", cursor:"pointer", borderBottom: i < suggestions.length-1 ? `1px solid ${C.border}` : "none", transition:"background 0.1s" }}
+              className="sugg-row"
+            >
+              <span style={{ fontSize:16, flexShrink:0 }}>{s.type === "biz" ? (CAT_EMOJI[s.biz?.cat] || "◎") : "📍"}</span>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{s.label}</div>
+                {s.sub && <div style={{ fontSize:11, color:C.textSub, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:1 }}>{s.sub}</div>}
+              </div>
+              <span style={{ fontSize:10, fontFamily:"monospace", color: s.type === "biz" ? C.green : C.purple, flexShrink:0 }}>{s.type === "biz" ? "◎ SOL" : "📍 place"}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <>
       <style>{`
@@ -379,6 +479,7 @@ export default function SolSpots() {
         .drawer-card:hover{background:rgba(153,69,255,0.06)!important;}
         input,select{color-scheme:dark;}
         .leaflet-container{background:#0D1117!important;}
+        .sugg-row:hover{background:rgba(153,69,255,0.08)!important;}
       `}</style>
 
       <div style={{ position:"fixed", inset:0, fontFamily:"'Syne','Segoe UI',sans-serif", background:C.bg, color:C.text, display:"flex", flexDirection:"column" }}>
@@ -393,19 +494,7 @@ export default function SolSpots() {
           {/* Unified search — shown in header on mobile */}
           {isMobile && (
             <div style={{ flex:1, display:"flex", gap:6, alignItems:"center" }}>
-              <div style={{ flex:1, position:"relative" }}>
-                <input
-                  value={search}
-                  onChange={e => { setSearch(e.target.value); mapRef.current?.clearSearchPin(); }}
-                  onKeyDown={handleSearchKeyDown}
-                  placeholder="Search businesses or any city…"
-                  style={{ ...inp, padding:"7px 36px 7px 12px", fontSize:12, borderRadius:100 }}
-                />
-                {addrLoading
-                  ? <div style={{ position:"absolute", right:11, top:"50%", transform:"translateY(-50%)", width:13, height:13, border:`2px solid ${C.border}`, borderTop:`2px solid ${C.green}`, borderRadius:"50%", animation:"spin 0.7s linear infinite" }}/>
-                  : <span style={{ position:"absolute", right:11, top:"50%", transform:"translateY(-50%)", fontSize:14, color:C.textSub, pointerEvents:"none" }}>⌕</span>
-                }
-              </div>
+              <SearchBox pill />
             </div>
           )}
 
@@ -428,20 +517,9 @@ export default function SolSpots() {
           {!isMobile && (
             <div style={{ width:320, flexShrink:0, background:C.surface, borderRight:`1px solid ${C.border}`, display:"flex", flexDirection:"column", overflow:"hidden" }}>
               <div style={{ padding:12, borderBottom:`1px solid ${C.border}` }}>
-                {/* Unified search: filters businesses + geocodes locations on Enter */}
-                <div style={{ position:"relative", marginBottom:10 }}>
-                  <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:C.textDim, fontSize:15, pointerEvents:"none" }}>⌕</span>
-                  <input
-                    value={search}
-                    onChange={e => { setSearch(e.target.value); mapRef.current?.clearSearchPin(); }}
-                    onKeyDown={handleSearchKeyDown}
-                    placeholder="Search businesses or any city…"
-                    style={{ ...inp, padding:"8px 36px 8px 32px" }}
-                  />
-                  {addrLoading
-                    ? <div style={{ position:"absolute", right:11, top:"50%", transform:"translateY(-50%)", width:13, height:13, border:`2px solid ${C.border}`, borderTop:`2px solid ${C.green}`, borderRadius:"50%", animation:"spin 0.7s linear infinite" }}/>
-                    : search && <span onClick={() => { setSearch(""); mapRef.current?.clearSearchPin(); }} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", fontSize:13, cursor:"pointer", color:C.textDim }}>×</span>
-                  }
+                {/* Unified search: filters businesses + location autocomplete */}
+                <div style={{ marginBottom:10 }}>
+                  <SearchBox />
                 </div>
                 <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
                   {CATEGORIES.map(c => (
@@ -532,17 +610,7 @@ export default function SolSpots() {
                     <button onClick={() => setDrawer(false)} style={{ background:"none", border:"none", color:C.textDim, fontSize:20, cursor:"pointer" }}>×</button>
                   </div>
                   <div style={{ padding:"8px 12px", borderBottom:"1px solid rgba(153,69,255,0.1)", flexShrink:0 }}>
-                    <div style={{ position:"relative" }}>
-                      <span style={{ position:"absolute", left:9, top:"50%", transform:"translateY(-50%)", color:C.textDim, fontSize:13, pointerEvents:"none" }}>⌕</span>
-                      <input
-                        value={search}
-                        onChange={e => { setSearch(e.target.value); mapRef.current?.clearSearchPin(); }}
-                        onKeyDown={handleSearchKeyDown}
-                        placeholder="Search businesses or any city…"
-                        style={{ ...inp, padding:"7px 12px 7px 28px", fontSize:12 }}
-                      />
-                      {addrLoading && <div style={{ position:"absolute", right:9, top:"50%", transform:"translateY(-50%)", width:12, height:12, border:`2px solid ${C.border}`, borderTop:`2px solid ${C.green}`, borderRadius:"50%", animation:"spin 0.7s linear infinite" }}/>}
-                    </div>
+                    <SearchBox />
                   </div>
                   <div style={{ overflowY:"auto", padding:8, flex:1 }}>
                     {loading ? (
