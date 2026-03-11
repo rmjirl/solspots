@@ -167,6 +167,54 @@ const LeafletMap = forwardRef(function LeafletMap({ businesses, selected, onMark
   );
 });
 
+// ─── SearchBox — defined OUTSIDE SolSpots to prevent remount-on-every-render ──
+const SB_COLORS = {
+  surface2:"#141A26", border:"rgba(153,69,255,0.18)", borderHi:"rgba(153,69,255,0.45)",
+  textDim:"#4A5568", textSub:"#8A95B0", text:"#F0F4FF", green:"#14F195", surface:"#0E1420",
+};
+function SearchBox({ value, onChange, onKeyDown, onFocus, onBlur, suggestions, showSugg, onPick, addrLoading, pill, CAT_EMOJI: CE }) {
+  const C = SB_COLORS;
+  return (
+    <div style={{ position:"relative", flex:1, width:"100%" }}>
+      <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:C.textDim, fontSize:15, pointerEvents:"none", zIndex:1 }}>⌕</span>
+      <input
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        placeholder="Search businesses or locations"
+        style={{ width:"100%", background:C.surface2, border:`1px solid ${C.border}`, color:C.text, padding: pill ? "9px 34px 9px 30px" : "8px 34px 8px 30px", borderRadius: pill ? 100 : 10, fontFamily:"inherit", fontSize: pill ? 14 : 13, outline:"none", boxSizing:"border-box" }}
+      />
+      {addrLoading
+        ? <div style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", width:13, height:13, border:`2px solid ${C.border}`, borderTop:`2px solid ${C.green}`, borderRadius:"50%", animation:"spin 0.7s linear infinite" }}/>
+        : value
+          ? <span onMouseDown={e => { e.preventDefault(); onChange({ target:{ value:"" } }); }} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", fontSize:15, cursor:"pointer", color:C.textDim, lineHeight:1 }}>×</span>
+          : null
+      }
+      {showSugg && suggestions.length > 0 && (
+        <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, right:0, background:C.surface, border:`1px solid ${C.borderHi}`, borderRadius:12, overflow:"hidden", zIndex:9000, boxShadow:"0 8px 32px rgba(0,0,0,0.6)" }}>
+          {suggestions.map((s, i) => (
+            <div
+              key={i}
+              onMouseDown={e => { e.preventDefault(); onPick(s); }}
+              style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", cursor:"pointer", borderBottom: i < suggestions.length-1 ? `1px solid ${C.border}` : "none", transition:"background 0.1s" }}
+              className="sugg-row"
+            >
+              <span style={{ fontSize:16, flexShrink:0 }}>{s.type === "biz" ? (CE[s.biz?.cat] || "◎") : "📍"}</span>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{s.label}</div>
+                {s.sub && <div style={{ fontSize:11, color:C.textSub, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:1 }}>{s.sub}</div>}
+              </div>
+              <span style={{ fontSize:10, fontFamily:"monospace", color: s.type === "biz" ? C.green : "#9945FF", flexShrink:0 }}>{s.type === "biz" ? "◎ SOL" : "📍 place"}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main app ──────────────────────────────────────────────────────────────────
 export default function SolSpots() {
   const [filter,      setFilter]   = useState("all");
@@ -419,48 +467,6 @@ export default function SolSpots() {
   const inp = { width:"100%", background:C.surface2, border:`1px solid ${C.border}`, color:C.text, padding:"9px 12px", borderRadius:10, fontFamily:"inherit", fontSize:13, outline:"none" };
   const lbl = { display:"block", fontSize:11, fontWeight:600, color:C.textSub, textTransform:"uppercase", letterSpacing:0.5, marginBottom:5, fontFamily:"monospace" };
 
-  // ─── Shared SearchBox ─────────────────────────────────────────────────────────
-  const SearchBox = ({ pill = false }) => (
-    <div style={{ position:"relative", flex:1 }}>
-      <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:C.textDim, fontSize:15, pointerEvents:"none", zIndex:1 }}>⌕</span>
-      <input
-        value={search}
-        onChange={e => { setSearch(e.target.value); updateSuggestions(e.target.value); mapRef.current?.clearSearchPin(); }}
-        onKeyDown={handleSearchKeyDown}
-        onFocus={() => suggestions.length > 0 && setShowSugg(true)}
-        onBlur={() => setTimeout(() => setShowSugg(false), 150)}
-        placeholder="Search businesses or locations"
-        style={{ ...inp, padding: pill ? "7px 34px 7px 30px" : "8px 34px 8px 30px", borderRadius: pill ? 100 : 10, fontSize: pill ? 12 : 13 }}
-      />
-      {addrLoading
-        ? <div style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", width:13, height:13, border:`2px solid ${C.border}`, borderTop:`2px solid ${C.green}`, borderRadius:"50%", animation:"spin 0.7s linear infinite" }}/>
-        : search
-          ? <span onMouseDown={e => { e.preventDefault(); setSearch(""); setSuggestions([]); setShowSugg(false); mapRef.current?.clearSearchPin(); }} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", fontSize:13, cursor:"pointer", color:C.textDim }}>×</span>
-          : null
-      }
-      {/* Suggestions dropdown */}
-      {showSugg && suggestions.length > 0 && (
-        <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, right:0, background:C.surface, border:`1px solid ${C.borderHi}`, borderRadius:12, overflow:"hidden", zIndex:9000, boxShadow:"0 8px 32px rgba(0,0,0,0.6)" }}>
-          {suggestions.map((s, i) => (
-            <div
-              key={i}
-              onMouseDown={e => { e.preventDefault(); pickSuggestion(s); }}
-              style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", cursor:"pointer", borderBottom: i < suggestions.length-1 ? `1px solid ${C.border}` : "none", transition:"background 0.1s" }}
-              className="sugg-row"
-            >
-              <span style={{ fontSize:16, flexShrink:0 }}>{s.type === "biz" ? (CAT_EMOJI[s.biz?.cat] || "◎") : "📍"}</span>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:13, fontWeight:700, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{s.label}</div>
-                {s.sub && <div style={{ fontSize:11, color:C.textSub, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginTop:1 }}>{s.sub}</div>}
-              </div>
-              <span style={{ fontSize:10, fontFamily:"monospace", color: s.type === "biz" ? C.green : C.purple, flexShrink:0 }}>{s.type === "biz" ? "◎ SOL" : "📍 place"}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <>
       <style>{`
@@ -485,16 +491,34 @@ export default function SolSpots() {
       <div style={{ position:"fixed", inset:0, fontFamily:"'Syne','Segoe UI',sans-serif", background:C.bg, color:C.text, display:"flex", flexDirection:"column" }}>
 
         {/* Header */}
-        <header style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 14px", height:52, background:C.surface, borderBottom:`1px solid ${C.border}`, flexShrink:0, zIndex:10, gap:8 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8, fontWeight:800, fontSize:18, letterSpacing:-0.5, flexShrink:0 }}>
-            <div style={{ width:28, height:28, background:"linear-gradient(135deg,#9945FF,#14F195)", borderRadius:7, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>◎</div>
-            SOL <span style={{ color:C.green }}>Spots</span>
+        <header style={{ display:"flex", alignItems:"center", padding:"0 10px", height:52, background:C.surface, borderBottom:`1px solid ${C.border}`, flexShrink:0, zIndex:10, gap:8 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:isMobile ? 5 : 8, fontWeight:800, fontSize: isMobile ? 13 : 18, letterSpacing:-0.5, flexShrink:0 }}>
+            <div style={{ width: isMobile ? 22 : 28, height: isMobile ? 22 : 28, background:"linear-gradient(135deg,#9945FF,#14F195)", borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center", fontSize: isMobile ? 11 : 14 }}>◎</div>
+            {isMobile
+              ? <div style={{ display:"flex", flexDirection:"column", lineHeight:0.95, fontSize:12 }}>
+                  <span style={{ display:"inline-block", transform:"scaleX(0.9)", transformOrigin:"left" }}>SOL</span>
+                  <span style={{ display:"inline-block", transform:"scaleX(0.8)", transformOrigin:"left", color:"#14F195" }}>Spots</span>
+                </div>
+              : <>SOL <span style={{ color:C.green }}>Spots</span></>
+            }
           </div>
 
           {/* Unified search — shown in header on mobile */}
           {isMobile && (
-            <div style={{ flex:1, display:"flex", gap:6, alignItems:"center" }}>
-              <SearchBox pill />
+            <div style={{ flex:1, display:"flex", gap:6, alignItems:"center", minWidth:0 }}>
+              <SearchBox
+                pill
+                value={search}
+                onChange={e => { setSearch(e.target.value); updateSuggestions(e.target.value); mapRef.current?.clearSearchPin(); }}
+                onKeyDown={handleSearchKeyDown}
+                onFocus={() => suggestions.length > 0 && setShowSugg(true)}
+                onBlur={() => setTimeout(() => setShowSugg(false), 150)}
+                suggestions={suggestions}
+                showSugg={showSugg}
+                onPick={pickSuggestion}
+                addrLoading={addrLoading}
+                CAT_EMOJI={CAT_EMOJI}
+              />
             </div>
           )}
 
@@ -519,7 +543,18 @@ export default function SolSpots() {
               <div style={{ padding:12, borderBottom:`1px solid ${C.border}` }}>
                 {/* Unified search: filters businesses + location autocomplete */}
                 <div style={{ marginBottom:10 }}>
-                  <SearchBox />
+                  <SearchBox
+                    value={search}
+                    onChange={e => { setSearch(e.target.value); updateSuggestions(e.target.value); mapRef.current?.clearSearchPin(); }}
+                    onKeyDown={handleSearchKeyDown}
+                    onFocus={() => suggestions.length > 0 && setShowSugg(true)}
+                    onBlur={() => setTimeout(() => setShowSugg(false), 150)}
+                    suggestions={suggestions}
+                    showSugg={showSugg}
+                    onPick={pickSuggestion}
+                    addrLoading={addrLoading}
+                    CAT_EMOJI={CAT_EMOJI}
+                  />
                 </div>
                 <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
                   {CATEGORIES.map(c => (
@@ -610,7 +645,18 @@ export default function SolSpots() {
                     <button onClick={() => setDrawer(false)} style={{ background:"none", border:"none", color:C.textDim, fontSize:20, cursor:"pointer" }}>×</button>
                   </div>
                   <div style={{ padding:"8px 12px", borderBottom:"1px solid rgba(153,69,255,0.1)", flexShrink:0 }}>
-                    <SearchBox />
+                    <SearchBox
+                      value={search}
+                      onChange={e => { setSearch(e.target.value); updateSuggestions(e.target.value); mapRef.current?.clearSearchPin(); }}
+                      onKeyDown={handleSearchKeyDown}
+                      onFocus={() => suggestions.length > 0 && setShowSugg(true)}
+                      onBlur={() => setTimeout(() => setShowSugg(false), 150)}
+                      suggestions={suggestions}
+                      showSugg={showSugg}
+                      onPick={pickSuggestion}
+                      addrLoading={addrLoading}
+                      CAT_EMOJI={CAT_EMOJI}
+                    />
                   </div>
                   <div style={{ overflowY:"auto", padding:8, flex:1 }}>
                     {loading ? (
