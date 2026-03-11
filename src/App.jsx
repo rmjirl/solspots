@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 
 // ─── Supabase config ───────────────────────────────────────────────────────────
 const SB_URL = "https://lfjtswxryhsttqaqsfks.supabase.co";
@@ -45,12 +45,44 @@ function useLeaflet(onReady) {
   }, []);
 }
 
-function LeafletMap({ businesses, selected, onMarkerClick, filter, userLocation }) {
+const LeafletMap = forwardRef(function LeafletMap({ businesses, selected, onMarkerClick, filter, userLocation }, ref) {
   const mapRef        = useRef(null);
   const leafletMap    = useRef(null);
   const markersRef    = useRef({});
   const userMarkerRef = useRef(null);
+  const searchPinRef  = useRef(null);
   const [ready, setReady] = useState(!!window.L);
+
+  useLeaflet(() => setReady(true));
+
+  // Expose flyTo and setSearchPin to parent
+  useImperativeHandle(ref, () => ({
+    flyTo: (lat, lng, zoom = 14) => {
+      if (leafletMap.current) leafletMap.current.flyTo([lat, lng], zoom, { duration: 1 });
+    },
+    setSearchPin: (lat, lng, label) => {
+      if (!leafletMap.current || !window.L) return;
+      const L = window.L;
+      if (searchPinRef.current) searchPinRef.current.remove();
+      const icon = L.divIcon({
+        className: "",
+        html: `<div style="display:flex;flex-direction:column;align-items:center;gap:0;">
+          <div style="background:#9945FF;border:2px solid #fff;border-radius:50% 50% 50% 0;width:28px;height:28px;transform:rotate(-45deg);box-shadow:0 0 14px #9945FF;display:flex;align-items:center;justify-content:center;">
+            <span style="transform:rotate(45deg);font-size:14px;">📍</span>
+          </div>
+        </div>`,
+        iconSize: [28, 36], iconAnchor: [14, 36],
+      });
+      searchPinRef.current = L.marker([lat, lng], { icon, zIndexOffset: 900 })
+        .addTo(leafletMap.current)
+        .bindTooltip(label, { permanent: true, direction: "top", className: "sol-tooltip", offset: [0, -8] })
+        .openTooltip();
+      leafletMap.current.flyTo([lat, lng], 14, { duration: 1 });
+    },
+    clearSearchPin: () => {
+      if (searchPinRef.current) { searchPinRef.current.remove(); searchPinRef.current = null; }
+    },
+  }), [ready]);
 
   useLeaflet(() => setReady(true));
 
@@ -133,7 +165,7 @@ function LeafletMap({ businesses, selected, onMarkerClick, filter, userLocation 
   return (
     <div ref={mapRef} style={{ width:"100%", height:"100%", background:"#0D1117" }} />
   );
-}
+});
 
 // ─── Main app ──────────────────────────────────────────────────────────────────
 export default function SolSpots() {
@@ -150,6 +182,9 @@ export default function SolSpots() {
   const [form,         setForm]        = useState({ name:"", addr:"", cat:"cafe", lat:"", lng:"", website:"", phone:"", wallet:"" });
   const [userLocation, setUserLocation] = useState(null);
   const [gpsError,    setGpsError]     = useState(false);
+  const [addrSearch,  setAddrSearch]   = useState("");
+  const [addrLoading, setAddrLoading]  = useState(false);
+  const mapRef = useRef(null);
 
   useEffect(() => {
     const fn = () => setMobile(window.innerWidth < 768);
@@ -292,6 +327,28 @@ export default function SolSpots() {
     }
   };
 
+  // ── Geocode address search (Nominatim) ──
+  const geocodeSearch = useCallback(async (query) => {
+    if (!query.trim()) return;
+    setAddrLoading(true);
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
+      const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+      const data = await res.json();
+      if (!data || data.length === 0) {
+        showToast("⚠ Location not found. Try a different search.");
+        return;
+      }
+      const { lat, lon, display_name } = data[0];
+      const shortLabel = display_name.split(",").slice(0, 2).join(",");
+      mapRef.current?.setSearchPin(parseFloat(lat), parseFloat(lon), shortLabel);
+    } catch (e) {
+      showToast("⚠ Search failed. Check your connection.");
+    } finally {
+      setAddrLoading(false);
+    }
+  }, []);
+
   // ─── Colors ───────────────────────────────────────────────────────────────────
   const C = {
     bg:"#07090E", surface:"#0E1420", surface2:"#141A26",
@@ -326,11 +383,31 @@ export default function SolSpots() {
 
         {/* Header */}
         <header style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 14px", height:52, background:C.surface, borderBottom:`1px solid ${C.border}`, flexShrink:0, zIndex:10, gap:8 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8, fontWeight:800, fontSize:18, letterSpacing:-0.5 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, fontWeight:800, fontSize:18, letterSpacing:-0.5, flexShrink:0 }}>
             <div style={{ width:28, height:28, background:"linear-gradient(135deg,#9945FF,#14F195)", borderRadius:7, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>◎</div>
             SOL <span style={{ color:C.green }}>Spots</span>
           </div>
-          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+
+          {/* Address search — shown in header on mobile, hidden on desktop (desktop has sidebar) */}
+          {isMobile && (
+            <div style={{ flex:1, display:"flex", gap:6, alignItems:"center" }}>
+              <div style={{ flex:1, position:"relative" }}>
+                <input
+                  value={addrSearch}
+                  onChange={e => setAddrSearch(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && geocodeSearch(addrSearch)}
+                  placeholder="Search any address or city…"
+                  style={{ ...inp, padding:"7px 36px 7px 12px", fontSize:12, borderRadius:100 }}
+                />
+                {addrLoading
+                  ? <div style={{ position:"absolute", right:11, top:"50%", transform:"translateY(-50%)", width:13, height:13, border:`2px solid ${C.border}`, borderTop:`2px solid ${C.green}`, borderRadius:"50%", animation:"spin 0.7s linear infinite" }}/>
+                  : <span onClick={() => geocodeSearch(addrSearch)} style={{ position:"absolute", right:11, top:"50%", transform:"translateY(-50%)", fontSize:14, cursor:"pointer", color:C.textSub }}>⌕</span>
+                }
+              </div>
+            </div>
+          )}
+
+          <div style={{ display:"flex", gap:6, alignItems:"center", flexShrink:0 }}>
             {!isMobile && (
               <div style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(20,241,149,0.07)", border:"1px solid rgba(20,241,149,0.2)", padding:"5px 10px", borderRadius:8, fontSize:12, fontFamily:"monospace", color:C.green, whiteSpace:"nowrap" }}>
                 {loading
@@ -349,9 +426,25 @@ export default function SolSpots() {
           {!isMobile && (
             <div style={{ width:320, flexShrink:0, background:C.surface, borderRight:`1px solid ${C.border}`, display:"flex", flexDirection:"column", overflow:"hidden" }}>
               <div style={{ padding:12, borderBottom:`1px solid ${C.border}` }}>
+                {/* Address / city geocode search */}
+                <div style={{ position:"relative", marginBottom:8 }}>
+                  <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:C.purple, fontSize:14 }}>🌐</span>
+                  <input
+                    value={addrSearch}
+                    onChange={e => setAddrSearch(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && geocodeSearch(addrSearch)}
+                    placeholder="Go to any city or address…"
+                    style={{ ...inp, padding:"8px 36px 8px 30px" }}
+                  />
+                  {addrLoading
+                    ? <div style={{ position:"absolute", right:11, top:"50%", transform:"translateY(-50%)", width:13, height:13, border:`2px solid ${C.border}`, borderTop:`2px solid ${C.green}`, borderRadius:"50%", animation:"spin 0.7s linear infinite" }}/>
+                    : <span onClick={() => geocodeSearch(addrSearch)} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", fontSize:15, cursor:"pointer", color:C.textSub }}>⌕</span>
+                  }
+                </div>
+                {/* Business name filter search */}
                 <div style={{ position:"relative", marginBottom:10 }}>
                   <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:C.textDim, fontSize:15 }}>⌕</span>
-                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search businesses..." style={{ ...inp, padding:"8px 12px 8px 32px" }}/>
+                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Filter businesses..." style={{ ...inp, padding:"8px 12px 8px 32px" }}/>
                 </div>
                 <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
                   {CATEGORIES.map(c => (
@@ -391,7 +484,7 @@ export default function SolSpots() {
 
           {/* Map */}
           <div style={{ flex:1, position:"relative", overflow:"hidden", marginBottom: isMobile ? BOTTOM_BAR_H : 0 }}>
-            <LeafletMap businesses={businesses} selected={selected} filter={filter}
+            <LeafletMap ref={mapRef} businesses={businesses} selected={selected} filter={filter}
               onMarkerClick={b => selectBiz(b, isMobile)}
               userLocation={userLocation}
             />
