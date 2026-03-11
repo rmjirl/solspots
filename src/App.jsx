@@ -156,58 +156,56 @@ export default function SolSpots() {
     return () => window.removeEventListener("resize", fn);
   }, []);
 
-  // ── Geolocation: IP-based first (no permission), then upgrade to GPS ──
+  // ── Geolocation: IP lookup on desktop, GPS-only on mobile ──
   useEffect(() => {
-    // Step 1: Try multiple IP lookup services in order — Brave blocks ipapi.co
-    const tryIpLookup = async () => {
-      const services = [
-        // cloudflare trace — plain text, never blocked
-        async () => {
-          const r = await fetch("https://www.cloudflare.com/cdn-cgi/trace");
-          const text = await r.text();
-          // Cloudflare trace doesn't give lat/lng, skip to next
-          throw new Error("no coords");
-        },
-        // ip-api — free, no tracking reputation, works in Brave
-        async () => {
-          const r = await fetch("https://ip-api.com/json/?fields=lat,lon,status");
-          const d = await r.json();
-          if (d.status === "success" && d.lat) return { lat: d.lat, lng: d.lon };
-          throw new Error("no coords");
-        },
-        // freeipapi — another fallback
-        async () => {
-          const r = await fetch("https://freeipapi.com/api/json");
-          const d = await r.json();
-          if (d.latitude && d.longitude) return { lat: d.latitude, lng: d.longitude };
-          throw new Error("no coords");
-        },
-        // ipapi.co — last resort (blocked by Brave)
-        async () => {
-          const r = await fetch("https://ipapi.co/json/");
-          const d = await r.json();
-          if (d.latitude && d.longitude) return { lat: d.latitude, lng: d.longitude };
-          throw new Error("no coords");
-        },
-      ];
-      for (const svc of services) {
-        try {
-          const loc = await svc();
-          if (loc) {
-            setUserLocation({ ...loc, approximate: true });
-            return;
-          }
-        } catch (_) {}
-      }
-    };
-    tryIpLookup();
+    const mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-    // Step 2: Request precise GPS — upgrades the pin when granted
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, approximate: false }),
-      () => {} // silently ignore if denied
-    );
+    // GPS handler — used by both paths
+    const requestGPS = () => {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, approximate: false }),
+        () => {} // denied — stay on default view
+      );
+    };
+
+    if (mobile) {
+      // Mobile Brave (and others) block all IP lookup APIs at network level.
+      // Skip straight to GPS prompt — it fires immediately on page load.
+      requestGPS();
+    } else {
+      // Desktop: try IP lookup services in order, upgrade to GPS after
+      const tryIpLookup = async () => {
+        const services = [
+          async () => {
+            const r = await fetch("https://ip-api.com/json/?fields=lat,lon,status");
+            const d = await r.json();
+            if (d.status === "success" && d.lat) return { lat: d.lat, lng: d.lon };
+            throw new Error("no coords");
+          },
+          async () => {
+            const r = await fetch("https://freeipapi.com/api/json");
+            const d = await r.json();
+            if (d.latitude && d.longitude) return { lat: d.latitude, lng: d.longitude };
+            throw new Error("no coords");
+          },
+          async () => {
+            const r = await fetch("https://ipapi.co/json/");
+            const d = await r.json();
+            if (d.latitude && d.longitude) return { lat: d.latitude, lng: d.longitude };
+            throw new Error("no coords");
+          },
+        ];
+        for (const svc of services) {
+          try {
+            const loc = await svc();
+            if (loc) { setUserLocation({ ...loc, approximate: true }); return; }
+          } catch (_) {}
+        }
+      };
+      tryIpLookup();
+      requestGPS();
+    }
   }, []);
 
   // ── Load approved businesses from Supabase ──
@@ -398,6 +396,21 @@ export default function SolSpots() {
                 <div style={{ width:6, height:6, background:C.green, borderRadius:"50%", animation:"pulse 2s infinite" }}/>
                 {loading ? "Loading…" : `${filtered.length} locations`}
               </div>
+            )}
+
+            {/* Mobile: nudge to share location if GPS not yet granted */}
+            {isMobile && !userLocation && !loading && (
+              <div
+                onClick={() => {
+                  if (!navigator.geolocation) return;
+                  navigator.geolocation.getCurrentPosition(
+                    (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, approximate: false }),
+                    () => {}
+                  );
+                }}
+                style={{ position:"absolute", bottom:16, left:"50%", transform:"translateX(-50%)", zIndex:400, display:"flex", alignItems:"center", gap:7, background:"rgba(7,9,14,0.92)", backdropFilter:"blur(12px)", border:"1px solid rgba(20,241,149,0.35)", padding:"9px 16px", borderRadius:100, fontSize:12, fontFamily:"monospace", color:C.green, whiteSpace:"nowrap", cursor:"pointer", animation:"slideUp 0.3s ease" }}>
+                  📍 Show my location
+                </div>
             )}
 
             {/* Business popup */}
