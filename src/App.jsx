@@ -182,9 +182,33 @@ export default function SolSpots() {
   const [form,         setForm]        = useState({ name:"", addr:"", cat:"cafe", lat:"", lng:"", website:"", phone:"", wallet:"" });
   const [userLocation, setUserLocation] = useState(null);
   const [gpsError,    setGpsError]     = useState(false);
-  const [addrSearch,  setAddrSearch]   = useState("");
   const [addrLoading, setAddrLoading]  = useState(false);
   const mapRef = useRef(null);
+
+  // Unified search: filters businesses instantly, geocodes on Enter if no local match
+  const handleSearchKeyDown = useCallback(async (e) => {
+    if (e.key !== "Enter") return;
+    const q = search.trim();
+    if (!q) return;
+    // If there are local business matches, just let the filter do its thing
+    const localMatches = businesses.filter(b =>
+      b.name.toLowerCase().includes(q.toLowerCase()) ||
+      b.addr.toLowerCase().includes(q.toLowerCase())
+    );
+    if (localMatches.length > 0) return;
+    // No local match → geocode it
+    setAddrLoading(true);
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`;
+      const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+      const data = await res.json();
+      if (!data || data.length === 0) { showToast("⚠ Location not found."); return; }
+      const { lat, lon, display_name } = data[0];
+      const shortLabel = display_name.split(",").slice(0, 2).join(",");
+      mapRef.current?.setSearchPin(parseFloat(lat), parseFloat(lon), shortLabel);
+    } catch { showToast("⚠ Search failed. Check your connection."); }
+    finally { setAddrLoading(false); }
+  }, [search, businesses]);
 
   useEffect(() => {
     const fn = () => setMobile(window.innerWidth < 768);
@@ -327,28 +351,6 @@ export default function SolSpots() {
     }
   };
 
-  // ── Geocode address search (Nominatim) ──
-  const geocodeSearch = useCallback(async (query) => {
-    if (!query.trim()) return;
-    setAddrLoading(true);
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
-      const res = await fetch(url, { headers: { "Accept-Language": "en" } });
-      const data = await res.json();
-      if (!data || data.length === 0) {
-        showToast("⚠ Location not found. Try a different search.");
-        return;
-      }
-      const { lat, lon, display_name } = data[0];
-      const shortLabel = display_name.split(",").slice(0, 2).join(",");
-      mapRef.current?.setSearchPin(parseFloat(lat), parseFloat(lon), shortLabel);
-    } catch (e) {
-      showToast("⚠ Search failed. Check your connection.");
-    } finally {
-      setAddrLoading(false);
-    }
-  }, []);
-
   // ─── Colors ───────────────────────────────────────────────────────────────────
   const C = {
     bg:"#07090E", surface:"#0E1420", surface2:"#141A26",
@@ -388,20 +390,20 @@ export default function SolSpots() {
             SOL <span style={{ color:C.green }}>Spots</span>
           </div>
 
-          {/* Address search — shown in header on mobile, hidden on desktop (desktop has sidebar) */}
+          {/* Unified search — shown in header on mobile */}
           {isMobile && (
             <div style={{ flex:1, display:"flex", gap:6, alignItems:"center" }}>
               <div style={{ flex:1, position:"relative" }}>
                 <input
-                  value={addrSearch}
-                  onChange={e => setAddrSearch(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && geocodeSearch(addrSearch)}
-                  placeholder="Search any address or city…"
+                  value={search}
+                  onChange={e => { setSearch(e.target.value); mapRef.current?.clearSearchPin(); }}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder="Search businesses or any city…"
                   style={{ ...inp, padding:"7px 36px 7px 12px", fontSize:12, borderRadius:100 }}
                 />
                 {addrLoading
                   ? <div style={{ position:"absolute", right:11, top:"50%", transform:"translateY(-50%)", width:13, height:13, border:`2px solid ${C.border}`, borderTop:`2px solid ${C.green}`, borderRadius:"50%", animation:"spin 0.7s linear infinite" }}/>
-                  : <span onClick={() => geocodeSearch(addrSearch)} style={{ position:"absolute", right:11, top:"50%", transform:"translateY(-50%)", fontSize:14, cursor:"pointer", color:C.textSub }}>⌕</span>
+                  : <span style={{ position:"absolute", right:11, top:"50%", transform:"translateY(-50%)", fontSize:14, color:C.textSub, pointerEvents:"none" }}>⌕</span>
                 }
               </div>
             </div>
@@ -426,25 +428,20 @@ export default function SolSpots() {
           {!isMobile && (
             <div style={{ width:320, flexShrink:0, background:C.surface, borderRight:`1px solid ${C.border}`, display:"flex", flexDirection:"column", overflow:"hidden" }}>
               <div style={{ padding:12, borderBottom:`1px solid ${C.border}` }}>
-                {/* Address / city geocode search */}
-                <div style={{ position:"relative", marginBottom:8 }}>
-                  <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:C.purple, fontSize:14 }}>🌐</span>
+                {/* Unified search: filters businesses + geocodes locations on Enter */}
+                <div style={{ position:"relative", marginBottom:10 }}>
+                  <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:C.textDim, fontSize:15, pointerEvents:"none" }}>⌕</span>
                   <input
-                    value={addrSearch}
-                    onChange={e => setAddrSearch(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && geocodeSearch(addrSearch)}
-                    placeholder="Go to any city or address…"
-                    style={{ ...inp, padding:"8px 36px 8px 30px" }}
+                    value={search}
+                    onChange={e => { setSearch(e.target.value); mapRef.current?.clearSearchPin(); }}
+                    onKeyDown={handleSearchKeyDown}
+                    placeholder="Search businesses or any city…"
+                    style={{ ...inp, padding:"8px 36px 8px 32px" }}
                   />
                   {addrLoading
                     ? <div style={{ position:"absolute", right:11, top:"50%", transform:"translateY(-50%)", width:13, height:13, border:`2px solid ${C.border}`, borderTop:`2px solid ${C.green}`, borderRadius:"50%", animation:"spin 0.7s linear infinite" }}/>
-                    : <span onClick={() => geocodeSearch(addrSearch)} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", fontSize:15, cursor:"pointer", color:C.textSub }}>⌕</span>
+                    : search && <span onClick={() => { setSearch(""); mapRef.current?.clearSearchPin(); }} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", fontSize:13, cursor:"pointer", color:C.textDim }}>×</span>
                   }
-                </div>
-                {/* Business name filter search */}
-                <div style={{ position:"relative", marginBottom:10 }}>
-                  <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:C.textDim, fontSize:15 }}>⌕</span>
-                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Filter businesses..." style={{ ...inp, padding:"8px 12px 8px 32px" }}/>
                 </div>
                 <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
                   {CATEGORIES.map(c => (
@@ -536,8 +533,15 @@ export default function SolSpots() {
                   </div>
                   <div style={{ padding:"8px 12px", borderBottom:"1px solid rgba(153,69,255,0.1)", flexShrink:0 }}>
                     <div style={{ position:"relative" }}>
-                      <span style={{ position:"absolute", left:9, top:"50%", transform:"translateY(-50%)", color:C.textDim, fontSize:13 }}>⌕</span>
-                      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ ...inp, padding:"7px 12px 7px 28px", fontSize:12 }}/>
+                      <span style={{ position:"absolute", left:9, top:"50%", transform:"translateY(-50%)", color:C.textDim, fontSize:13, pointerEvents:"none" }}>⌕</span>
+                      <input
+                        value={search}
+                        onChange={e => { setSearch(e.target.value); mapRef.current?.clearSearchPin(); }}
+                        onKeyDown={handleSearchKeyDown}
+                        placeholder="Search businesses or any city…"
+                        style={{ ...inp, padding:"7px 12px 7px 28px", fontSize:12 }}
+                      />
+                      {addrLoading && <div style={{ position:"absolute", right:9, top:"50%", transform:"translateY(-50%)", width:12, height:12, border:`2px solid ${C.border}`, borderTop:`2px solid ${C.green}`, borderRadius:"50%", animation:"spin 0.7s linear infinite" }}/>}
                     </div>
                   </div>
                   <div style={{ overflowY:"auto", padding:8, flex:1 }}>
