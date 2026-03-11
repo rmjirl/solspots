@@ -76,18 +76,19 @@ function LeafletMap({ businesses, selected, onMarkerClick, filter, userLocation 
     const L   = window.L;
     const map = leafletMap.current;
     if (userMarkerRef.current) userMarkerRef.current.remove();
+    const approx = userLocation.approximate;
     const icon = L.divIcon({
       className: "",
-      html: `<div style="position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
-        <div style="position:absolute;width:40px;height:40px;border-radius:50%;background:rgba(20,241,149,0.2);animation:pcPulse 1.8s ease-out infinite;"></div>
-        <div style="position:absolute;width:26px;height:26px;border-radius:50%;background:rgba(20,241,149,0.3);animation:pcPulse 1.8s ease-out infinite 0.3s;"></div>
-        <div style="position:relative;width:16px;height:16px;background:#14F195;border:2.5px solid #fff;border-radius:50%;box-shadow:0 0 14px #14F195;z-index:2;"></div>
+      html: `<div style="position:relative;width:${approx?56:40}px;height:${approx?56:40}px;display:flex;align-items:center;justify-content:center;">
+        <div style="position:absolute;width:100%;height:100%;border-radius:50%;background:rgba(20,241,149,${approx?0.1:0.2});animation:pcPulse 1.8s ease-out infinite;"></div>
+        <div style="position:absolute;width:65%;height:65%;border-radius:50%;background:rgba(20,241,149,${approx?0.15:0.3});animation:pcPulse 1.8s ease-out infinite 0.3s;"></div>
+        <div style="position:relative;width:${approx?14:16}px;height:${approx?14:16}px;background:${approx?"rgba(20,241,149,0.5)":"#14F195"};border:2.5px solid ${approx?"rgba(255,255,255,0.5)":"#fff"};border-radius:50%;box-shadow:0 0 ${approx?8:14}px #14F195;z-index:2;"></div>
       </div>`,
-      iconSize: [40, 40], iconAnchor: [20, 20],
+      iconSize: [approx?56:40, approx?56:40], iconAnchor: [approx?28:20, approx?28:20],
     });
     userMarkerRef.current = L.marker([userLocation.lat, userLocation.lng], { icon, zIndexOffset: 1000 })
       .addTo(map)
-      .bindTooltip("You are here", { permanent: false, direction: "top", className: "sol-tooltip" });
+      .bindTooltip(approx ? "Approximate location" : "You are here", { permanent: false, direction: "top", className: "sol-tooltip" });
   }, [ready, userLocation]);
 
   useEffect(() => {
@@ -110,6 +111,19 @@ function LeafletMap({ businesses, selected, onMarkerClick, filter, userLocation 
         .addTo(map).on("click", () => onMarkerClick(b));
     });
   }, [ready, businesses, selected, filter]);
+
+  // ── Fly to user location when it first arrives or upgrades to GPS ──
+  const prevLocRef = useRef(null);
+  useEffect(() => {
+    if (!ready || !leafletMap.current || !userLocation) return;
+    const wasApprox = prevLocRef.current?.approximate;
+    const isApprox  = userLocation.approximate;
+    // Only fly if: first location, or upgrading from approximate to precise
+    if (!prevLocRef.current || (wasApprox && !isApprox)) {
+      leafletMap.current.flyTo([userLocation.lat, userLocation.lng], isApprox ? 12 : 15, { duration: 1 });
+    }
+    prevLocRef.current = userLocation;
+  }, [ready, userLocation]);
 
   useEffect(() => {
     if (!ready || !leafletMap.current || !selected) return;
@@ -142,11 +156,22 @@ export default function SolSpots() {
     return () => window.removeEventListener("resize", fn);
   }, []);
 
-  // ── Request geolocation on mount ──
+  // ── Geolocation: IP-based first (no permission), then upgrade to GPS ──
   useEffect(() => {
+    // Step 1: IP-based city-level location immediately, no permission prompt
+    fetch("https://ipapi.co/json/")
+      .then(r => r.json())
+      .then(d => {
+        if (d.latitude && d.longitude) {
+          setUserLocation({ lat: d.latitude, lng: d.longitude, approximate: true });
+        }
+      })
+      .catch(() => {});
+
+    // Step 2: Request precise GPS — upgrades the pin when granted
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
-      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, approximate: false }),
       () => {} // silently ignore if denied
     );
   }, []);
