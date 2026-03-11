@@ -149,6 +149,7 @@ export default function SolSpots() {
   const [isMobile,    setMobile]   = useState(window.innerWidth < 768);
   const [form,         setForm]        = useState({ name:"", addr:"", cat:"cafe", lat:"", lng:"", website:"", phone:"", wallet:"" });
   const [userLocation, setUserLocation] = useState(null);
+  const [gpsError,    setGpsError]     = useState(false);
 
   useEffect(() => {
     const fn = () => setMobile(window.innerWidth < 768);
@@ -160,12 +161,22 @@ export default function SolSpots() {
   // Desktop: IP lookup (city-level, no permission) → auto-upgrade to GPS
   // Mobile: iOS/Brave require a user gesture to trigger GPS — show a button instead
   const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const isBrave = !!navigator.brave || navigator.userAgent.includes("Brave");
 
   const requestGPS = useCallback(() => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) { setGpsError(true); return; }
+    setGpsError(false);
+    // Use high accuracy + explicit timeout so Brave doesn't silently hang
     navigator.geolocation.getCurrentPosition(
-      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, approximate: false }),
-      () => {}
+      (pos) => {
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, approximate: false });
+        setGpsError(false);
+      },
+      (err) => {
+        console.warn("GPS error:", err.code, err.message);
+        setGpsError(true);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   }, []);
 
@@ -468,12 +479,14 @@ export default function SolSpots() {
       </div>
 
       {/* Mobile location nudge — fixed above bottom bar, z-index above everything */}
-      {isMobile && isMobileDevice && !userLocation && (
+      {isMobileDevice && !userLocation && (
         <button
           onClick={requestGPS}
-          style={{ position:"fixed", bottom: BOTTOM_BAR_H + 16, left:"50%", transform:"translateX(-50%)", zIndex:9999, display:"flex", alignItems:"center", gap:8, background:"rgba(7,9,14,0.95)", backdropFilter:"blur(16px)", border:"1px solid rgba(20,241,149,0.5)", padding:"11px 20px", borderRadius:100, fontSize:13, fontFamily:"monospace", color:"#14F195", whiteSpace:"nowrap", cursor:"pointer", boxShadow:"0 4px 20px rgba(20,241,149,0.2)", WebkitTapHighlightColor:"transparent" }}>
-          <div style={{ width:8, height:8, background:"#14F195", borderRadius:"50%", animation:"pulse 1.5s infinite" }}/>
-          Show my location
+          style={{ position:"fixed", bottom: BOTTOM_BAR_H + 16, left:"50%", transform:"translateX(-50%)", zIndex:9999, display:"flex", alignItems:"center", gap:8, background: gpsError ? "rgba(20,0,0,0.97)" : "rgba(7,9,14,0.95)", backdropFilter:"blur(16px)", border:`1px solid ${gpsError ? "rgba(255,80,80,0.6)" : "rgba(20,241,149,0.5)"}`, padding:"11px 20px", borderRadius:100, fontSize:13, fontFamily:"monospace", color: gpsError ? "#ff5050" : "#14F195", whiteSpace:"nowrap", cursor:"pointer", boxShadow:`0 4px 20px ${gpsError ? "rgba(255,80,80,0.2)" : "rgba(20,241,149,0.2)"}`, WebkitTapHighlightColor:"transparent" }}>
+          {gpsError
+            ? <><span style={{marginRight:4}}>⚠</span>Location blocked — check browser settings</>
+            : <><div style={{ width:8, height:8, background:"#14F195", borderRadius:"50%", animation:"pulse 1.5s infinite" }}/>📍 Show my location</>
+          }
         </button>
       )}
 
