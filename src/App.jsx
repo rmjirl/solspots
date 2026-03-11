@@ -45,10 +45,11 @@ function useLeaflet(onReady) {
   }, []);
 }
 
-function LeafletMap({ businesses, selected, onMarkerClick, filter }) {
-  const mapRef      = useRef(null);
-  const leafletMap  = useRef(null);
-  const markersRef  = useRef({});
+function LeafletMap({ businesses, selected, onMarkerClick, filter, userLocation }) {
+  const mapRef        = useRef(null);
+  const leafletMap    = useRef(null);
+  const markersRef    = useRef({});
+  const userMarkerRef = useRef(null);
   const [ready, setReady] = useState(!!window.L);
 
   useLeaflet(() => setReady(true));
@@ -56,8 +57,11 @@ function LeafletMap({ businesses, selected, onMarkerClick, filter }) {
   useEffect(() => {
     if (!ready || !mapRef.current || leafletMap.current) return;
     const L = window.L;
+    const center = userLocation
+      ? [userLocation.lat, userLocation.lng]
+      : [DEFAULT_CENTER.lat, DEFAULT_CENTER.lng];
     const map = L.map(mapRef.current, { zoomControl: true, attributionControl: false })
-      .setView([DEFAULT_CENTER.lat, DEFAULT_CENTER.lng], 12);
+      .setView(center, 14);
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png", {
       maxZoom: 19, subdomains: "abcd"
     }).addTo(map);
@@ -65,6 +69,26 @@ function LeafletMap({ businesses, selected, onMarkerClick, filter }) {
     setTimeout(() => map.invalidateSize(), 100);
     setTimeout(() => map.invalidateSize(), 600);
   }, [ready]);
+
+  // ── User location marker ──
+  useEffect(() => {
+    if (!ready || !leafletMap.current || !userLocation) return;
+    const L   = window.L;
+    const map = leafletMap.current;
+    if (userMarkerRef.current) userMarkerRef.current.remove();
+    const icon = L.divIcon({
+      className: "",
+      html: `<div style="position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
+        <div style="position:absolute;width:40px;height:40px;border-radius:50%;background:rgba(20,241,149,0.2);animation:pcPulse 1.8s ease-out infinite;"></div>
+        <div style="position:absolute;width:26px;height:26px;border-radius:50%;background:rgba(20,241,149,0.3);animation:pcPulse 1.8s ease-out infinite 0.3s;"></div>
+        <div style="position:relative;width:16px;height:16px;background:#14F195;border:2.5px solid #fff;border-radius:50%;box-shadow:0 0 14px #14F195;z-index:2;"></div>
+      </div>`,
+      iconSize: [40, 40], iconAnchor: [20, 20],
+    });
+    userMarkerRef.current = L.marker([userLocation.lat, userLocation.lng], { icon, zIndexOffset: 1000 })
+      .addTo(map)
+      .bindTooltip("You are here", { permanent: false, direction: "top", className: "sol-tooltip" });
+  }, [ready, userLocation]);
 
   useEffect(() => {
     if (!ready || !leafletMap.current) return;
@@ -109,12 +133,22 @@ export default function SolSpots() {
   const [submitting,  setSubmitting] = useState(false);
   const [toast,       setToast]    = useState({ msg:"", vis:false });
   const [isMobile,    setMobile]   = useState(window.innerWidth < 768);
-  const [form, setForm] = useState({ name:"", addr:"", cat:"cafe", lat:"", lng:"", website:"", phone:"", wallet:"" });
+  const [form,         setForm]        = useState({ name:"", addr:"", cat:"cafe", lat:"", lng:"", website:"", phone:"", wallet:"" });
+  const [userLocation, setUserLocation] = useState(null);
 
   useEffect(() => {
     const fn = () => setMobile(window.innerWidth < 768);
     window.addEventListener("resize", fn);
     return () => window.removeEventListener("resize", fn);
+  }, []);
+
+  // ── Request geolocation on mount ──
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {} // silently ignore if denied
+    );
   }, []);
 
   // ── Load approved businesses from Supabase ──
@@ -216,6 +250,9 @@ export default function SolSpots() {
         @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.8)}}
         @keyframes slideUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
         @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes pcPulse{0%{transform:scale(0.8);opacity:0.9;}100%{transform:scale(2.4);opacity:0;}}
+        .sol-tooltip{background:rgba(14,20,32,0.95)!important;border:1px solid rgba(20,241,149,0.4)!important;color:#14F195!important;font-family:monospace!important;font-size:11px!important;font-weight:600!important;border-radius:6px!important;padding:3px 8px!important;box-shadow:none!important;}
+        .sol-tooltip::before{display:none!important;}
         .biz-card:hover{background:rgba(153,69,255,0.06)!important;border-color:rgba(153,69,255,0.25)!important;}
         .drawer-card:hover{background:rgba(153,69,255,0.06)!important;}
         input,select{color-scheme:dark;}
@@ -293,6 +330,7 @@ export default function SolSpots() {
           <div style={{ flex:1, position:"relative", overflow:"hidden", marginBottom: isMobile ? BOTTOM_BAR_H : 0 }}>
             <LeafletMap businesses={businesses} selected={selected} filter={filter}
               onMarkerClick={b => selectBiz(b, isMobile)}
+              userLocation={userLocation}
             />
 
             {/* Mobile locations badge */}
